@@ -54,7 +54,7 @@ ${BRAND_FONTS}
   .tcard svg{width:100%;height:auto;display:block;margin-top:7px}
   .badge{position:absolute;top:9px;right:10px;font-family:var(--mono);font-size:11px;color:var(--add);font-weight:600}
   .tctl{display:flex;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--hair);flex-wrap:nowrap}
-  .tctl input[type=number]{width:34px}
+  .tctl input[type=number]{width:41px}
   .tctl input[type=date]{width:118px;padding-left:5px;padding-right:2px}
   .tctl .lx{font-size:11px;color:var(--ink-3)}
   .tcard.sel .feas{display:flex}
