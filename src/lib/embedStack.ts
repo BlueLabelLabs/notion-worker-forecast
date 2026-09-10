@@ -1,40 +1,110 @@
 /**
- * Stack several standalone report HTMLs into ONE embed document, each in its own
- * same-origin <iframe srcdoc>. Isolation is the point: the reports were authored as
- * independent full pages (own <style>, :root tokens, class names, scripts, element ids),
- * so concatenating them raw would collide. Nested srcdoc iframes keep each report's CSS
- * and JS fully sandboxed from the other while still rendering in a single Notion block.
+ * Stack several standalone report HTMLs into ONE embed document.
  *
- * srcdoc iframes inherit the parent's origin, so the outer doc can measure each inner
- * document and size its iframe to the content (auto-height), refitting on interaction
- * (expand/collapse, toggles) via a ResizeObserver on the inner body.
+ * Notion renders an uploaded HTML file in a sandboxed iframe that runs inline <script>
+ * but strips/blocks nested <iframe> (so srcdoc isolation renders blank). The reports were
+ * each authored as an independent page — own :root tokens, generic class names (.card,
+ * .legend, .tt…), an id="tt" tooltip — so concatenating them raw collides.
+ *
+ * So we merge into a single document the same way each report already works in Notion:
+ * plain inline <script> (no iframes, no eval), with collisions removed mechanically —
+ *   • every selector in a section's CSS is prefixed with a per-section wrapper class,
+ *     giving real isolation without a fragile hand-rewrite (":root"/"body" map to the
+ *     wrapper; nested @media inside a token rule is preserved);
+ *   • the one cross-section id collision (the tooltip #tt) is renamed per section;
+ *   • the brand @font-face payload is hoisted out of the sections and emitted once.
+ * Each section's IIFE keeps its own scope and finds its own elements by id in the one
+ * shared document.
  */
 
-/** Escape an HTML string for use inside a double-quoted srcdoc="" attribute. */
-const forSrcdoc = (html: string) => html.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+import { BRAND_FONTS } from "./brandFonts.js";
 
-/** One combined embed doc: the given report HTMLs stacked, each isolated + auto-sized. */
+/** Pull the first <style>, first <script>, and the remaining visible markup out of a report doc. */
+function parts(html: string): { style: string; script: string; body: string } {
+  const style = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? "";
+  const script = html.match(/<script[^>]*>([\s\S]*?)<\/script>/i)?.[1] ?? "";
+  const body = html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/i, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/i, "")
+    .replace(/<!doctype[^>]*>/gi, "")
+    .replace(/<\/?(?:html|head|body)[^>]*>/gi, "")
+    .replace(/<title[^>]*>[\s\S]*?<\/title>/gi, "")
+    .replace(/<(?:link|meta)[^>]*>/gi, "")
+    .trim();
+  return { style, script, body };
+}
+
+/** Prefix one selector with the wrapper; :root/html/body become the wrapper itself. */
+function prefixSelector(sel: string, w: string): string {
+  const s = sel.trim();
+  if (!s) return s;
+  if (s === "*") return `${w} *`;
+  if (s.includes(":root")) return s.replace(/:root/g, w); // e.g. :root:not([data-theme="light"])
+  if (s === "html" || s === "body") return w;
+  if (/^(?:html|body)\b/.test(s)) return s.replace(/^(?:html|body)\b/, w);
+  return `${w} ${s}`;
+}
+
+/** Scope every rule in a stylesheet under `w`, recursing into @media/@supports; @font-face/@keyframes left as-is. */
+function scopeRules(css: string, w: string): string {
+  let out = "";
+  let i = 0;
+  const n = css.length;
+  while (i < n) {
+    let prelude = "";
+    while (i < n && css[i] !== "{") prelude += css[i++];
+    if (i >= n) { out += prelude; break; }
+    let depth = 0;
+    let block = "";
+    do {
+      const ch = css[i++];
+      if (ch === "{") depth++;
+      else if (ch === "}") depth--;
+      block += ch;
+    } while (i < n && depth > 0);
+    const head = prelude.trim();
+    const inner = block.slice(1, -1); // strip the outer { }
+    if (/^@(?:font-face|keyframes|-\w+-keyframes|import|charset)/i.test(head)) {
+      out += head + "{" + inner + "}";
+    } else if (/^@(?:media|supports)/i.test(head)) {
+      out += head + "{" + scopeRules(inner, w) + "}";
+    } else {
+      // Keep the block verbatim — this preserves CSS-nested @media inside a token rule
+      // (e.g. the dark-theme block nested in :root), whose body is declarations, not selectors.
+      out += head.split(",").map((sq) => prefixSelector(sq, w)).join(",") + "{" + inner + "}";
+    }
+  }
+  return out;
+}
+
+const scopeCss = (css: string, w: string): string => scopeRules(css.replace(/\/\*[\s\S]*?\*\//g, ""), w);
+
+/** One combined embed doc: the given report HTMLs stacked, each isolated, fonts emitted once. */
 export function renderStackedEmbed(sections: string[], title: string): string {
-  const frames = sections
-    .map((html, i) => `<iframe class="rpt" title="section ${i + 1}" style="height:${i === 0 ? 1200 : 900}px" srcdoc="${forSrcdoc(html)}"></iframe>`)
-    .join("\n");
-  return `<title>${title}</title>
-<style>
-  html,body{margin:0;padding:0;background:transparent}
-  iframe.rpt{display:block;width:100%;border:0;overflow:hidden}
-  iframe.rpt + iframe.rpt{margin-top:14px}
-</style>
-${frames}
-<script>
-(function(){
-  function fit(f){ try{ var d=f.contentWindow.document; f.style.height=Math.max(d.documentElement.scrollHeight, d.body.scrollHeight)+"px"; }catch(e){} }
-  document.querySelectorAll("iframe.rpt").forEach(function(f){
-    f.addEventListener("load", function(){
-      fit(f);
-      try{ new f.contentWindow.ResizeObserver(function(){ fit(f); }).observe(f.contentWindow.document.body); }catch(e){}
-      [150,500,1200].forEach(function(t){ setTimeout(function(){ fit(f); }, t); }); // late layout / web fonts
-    });
+  const blocks = sections.map((html, i) => {
+    const w = `.s${i}`;
+    const p = parts(html);
+    const css = scopeCss(p.style.split(BRAND_FONTS).join(""), w); // drop inlined fonts (hoisted below)
+    let { body, script } = p;
+    if (i > 0) {
+      // Disambiguate the single known cross-section id collision (the tooltip).
+      body = body.replace(/id="tt"/g, `id="tt${i}"`);
+      script = script.replace(/getElementById\("tt"\)/g, `getElementById("tt${i}")`);
+    }
+    return { i, css, body, script };
   });
-})();
-</script>`;
+
+  return `<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title>
+<style>
+${BRAND_FONTS}
+  html,body{margin:0;padding:0;background:transparent}
+  .rpt{display:block}
+  .rpt + .rpt{margin-top:14px}
+${blocks.map((b) => b.css).join("\n")}
+</style>
+${blocks.map((b) => `<div class="rpt s${b.i}">${b.body}</div>`).join("\n")}
+${blocks.map((b) => `<script>\n${b.script}\n</script>`).join("\n")}`;
 }
