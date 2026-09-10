@@ -99,6 +99,19 @@ async function createContainer(token: string, pageId: string, fileUploadId: stri
 export type Report = { filename: string; fileUploadId: string };
 export type SyncResult = { updated: string[]; created: string[]; migrated: string[]; deletedDupes: number };
 
+/** Permanently remove a retired report: delete its embed(s) and the now-empty container we wrapped it in. */
+export async function retireReportEmbeds(token: string, pageId: string, filenames: string[]): Promise<string[]> {
+  const found = await findReportEmbeds(token, pageId, filenames);
+  const deleted: string[] = [];
+  const containers = new Set<string>();
+  for (const f of found) {
+    if (await deleteBlock(token, f.embedId)) deleted.push(f.filename);
+    if (!f.parentIsPage) containers.add(f.parentId); // our synced-block wrapper — safe to drop once empty
+  }
+  for (const c of containers) await deleteBlock(token, c);
+  return deleted;
+}
+
 /**
  * Idempotently point each report's embed at fresh HTML, preserving where the user put it:
  *   • in a container already  → swap the embed inside that container (container stays put)
