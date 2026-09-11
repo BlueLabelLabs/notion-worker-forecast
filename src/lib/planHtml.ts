@@ -184,7 +184,7 @@ ${BRAND_FONTS}
     </div>
     <div class="legend">
       <span><i class="sw" style="background:#64748B"></i>Signed (100%)</span>
-      <span><i class="sw" style="background:#94A3B8"></i>Continuation, weighted</span>
+      <span><i class="sw" style="background:#94A3B8"></i>Expansion Forecast, weighted</span>
       <span><i class="sw" style="background:#CBD5E1"></i>Net-new, weighted</span>
       <span><i class="line"></i>Target</span>
     </div>
@@ -238,7 +238,7 @@ ${BRAND_FONTS}
       var pl=el("text",{x:cx,y:y(p.tot)-8,"text-anchor":"middle",fill:p.gap>=0?"var(--good-ink)":"var(--crit-ink)","font-size":11.5,"font-family":'"NB Mono",monospace'});pl.textContent=(p.gap<0?"−":"+")+usdS(Math.abs(p.gap));svg.appendChild(pl);
       var lb=el("text",{x:cx,y:H-PB+18,"text-anchor":"middle",fill:i>=nowRel&&nowRel>=0?"var(--ink-2)":"var(--ink-3)","font-size":10,"font-family":'"NB Mono",monospace'});lb.textContent=p.q;svg.appendChild(lb);
       var hit=el("rect",{x:PL+band*i,y:PT,width:band,height:ph,fill:"transparent",tabindex:0,role:"button","aria-label":p.q+" at "+Math.round(p.pc)+"% of target"});hit.style.cursor="crosshair";
-      var html='<div class="tt-h">'+p.q+'</div>'+row(null,"<b>Target</b>","<b>"+usd(p.t)+"</b>")+row(cols[0],"Signed",usd(p.s))+(p.cw>0?row(cols[1],"Continuation",usd(p.cw)):"")+(p.nw>0?row(cols[2],"Net-new",usd(p.nw)):"")+row(null,"Weighted total",usd(p.tot))+row(null,p.gap<0?"<b>Gap</b>":"<b>Over plan</b>","<b>"+usd(Math.abs(p.gap))+"</b>")+row(null,"% of plan",Math.round(p.pc)+"%");
+      var html='<div class="tt-h">'+p.q+'</div>'+row(null,"<b>Target</b>","<b>"+usd(p.t)+"</b>")+row(cols[0],"Signed",usd(p.s))+(p.cw>0?row(cols[1],"Expansion Forecast",usd(p.cw)):"")+(p.nw>0?row(cols[2],"Net-new",usd(p.nw)):"")+row(null,"Weighted total",usd(p.tot))+row(null,p.gap<0?"<b>Gap</b>":"<b>Over plan</b>","<b>"+usd(Math.abs(p.gap))+"</b>")+row(null,"% of plan",Math.round(p.pc)+"%");
       hit.addEventListener("mouseenter",function(e){hl.setAttribute("x",PL+band*i);hl.setAttribute("opacity",1);ttShow(e,html);});
       hit.addEventListener("mousemove",ttMove);
       hit.addEventListener("mouseleave",function(){hl.setAttribute("opacity",0);ttHide();});
