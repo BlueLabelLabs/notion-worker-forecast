@@ -9,7 +9,7 @@
 import { worker, googleAuth } from "../worker.js";
 import { getSheetMeta, getValues } from "../lib/sheets.js";
 
-const FIN_SHEET_ID = "1wfZ3E71eF_RajjEIgTDHdCAuro-LFvG7eic314vqo6U";
+const FIN_SHEET_ID = process.env.FIN_SHEET_ID ?? "1wfZ3E71eF_RajjEIgTDHdCAuro-LFvG7eic314vqo6U";
 
 worker.webhook("notionPeek", {
   title: "Financials Dump (temp)",

@@ -13,6 +13,8 @@ import { aggregateDeals } from "../lib/render.js";
 import { monthToQuarter, quartersRange } from "../lib/forecast.js";
 import { computeGlidepath, type GlideSeries } from "../lib/glidepath.js";
 import { buildTemplates, buildBaseline } from "../lib/simulator.js";
+import { buildFunnelWindows } from "../lib/coverageFunnel.js";
+import { renderFunnelHtml } from "../lib/funnelHtml.js";
 import { computePlanRows } from "../lib/planVsPipeline.js";
 import { renderPlanHtml } from "../lib/planHtml.js";
 import { renderSimulatorHtml } from "../lib/simulatorHtml.js";
@@ -80,9 +82,19 @@ worker.webhook("renderNotionFunnel", {
           console.warn("[forecast] simulator unavailable:", e instanceof Error ? e.message : e);
         }
 
-        // Stack plan + simulator into ONE embed (each isolated in its own srcdoc iframe), swapped
+        // Coverage funnel — open pipeline by stage vs a per-stage ideal minimum (Distributed default),
+        // existing/net-new split, committed Won base. Resilient: skip the section if it fails.
+        let htmlFunnel: string | null = null;
+        try {
+          const fw = buildFunnelWindows(deals, targets, now);
+          if (fw.length) htmlFunnel = renderFunnelHtml(fw, { asOf });
+        } catch (e) {
+          console.warn("[forecast] funnel unavailable:", e instanceof Error ? e.message : e);
+        }
+
+        // Stack plan → coverage funnel → simulator into ONE embed (each isolated + scoped), swapped
         // inside its draggable container so manual placement survives.
-        const combined = renderStackedEmbed(htmlSim ? [htmlPlan, htmlSim] : [htmlPlan], "Forecast vs Plan");
+        const combined = renderStackedEmbed([htmlPlan, htmlFunnel, htmlSim].filter((s): s is string => !!s), "Forecast vs Plan");
         const idPlan = await uploadHtml(token, combined, PLAN_FILE);
         const r = await syncReportEmbeds(token, PAGE_ID, [{ filename: PLAN_FILE, fileUploadId: idPlan }]);
 
@@ -98,7 +110,7 @@ worker.webhook("renderNotionFunnel", {
         const nearPct = nearTarget > 0 ? near.reduce((s, p) => s + wtd(p), 0) / nearTarget : 0;
         const fullGap = withTargets.filter((p) => p.q >= curQuarter).reduce((s, p) => s + Math.max(0, p.target - wtd(p)), 0);
 
-        const msg = `:bar_chart: *Notion report updated* — Forecast vs Plan + Simulator · near ${pct(nearPct)} covered, gap ${(fullGap / 1e6).toFixed(1)}M.`;
+        const msg = `:bar_chart: *Notion report updated* — Forecast vs Plan + Coverage Funnel + Simulator · near ${pct(nearPct)} covered, gap ${(fullGap / 1e6).toFixed(1)}M.`;
         const fresh = [...r.created, ...r.migrated];
         console.log(`[forecast] ${msg} (updated=[${r.updated}] created=[${r.created}] migrated=[${r.migrated}] dupes=${r.deletedDupes} retired=[${retired}])`);
         await postForecastOps(msg + (fresh.length ? ` :information_source: new report card added at the page end — drag into place once; future refreshes stay put.` : ""));
