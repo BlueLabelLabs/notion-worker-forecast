@@ -223,13 +223,13 @@ ${BRAND_FONTS}
     document.getElementById("legtext").innerHTML="Solid = Existing clients · Striped = New Clients · Light = "+MODES[mode].light;
     var idealFlat = sumFrac?gap/sumFrac:0;
     if(mode==="Single-stage"){
-      document.getElementById("fsub").innerHTML="Gap above committed <b style='color:var(--ink)'>"+usd(gap)+"</b> · a stress test: could this one stage rescue the quarter? Bands don't add up.";
+      document.getElementById("fsub").innerHTML="A stress test: could this one stage rescue the quarter? Bands don't add up.";
       document.getElementById("ffoot").textContent="Single-stage stress test. Each band answers “if only this stage's deals closed, how much would I need?” — useful for 60/80% (are near-close deals enough?), noise below. Not additive. Win-rates are CRM stage probabilities, not calibrated. √-compressed widths; exact figures on hover.";
     } else if(mode==="Distributed"){
-      document.getElementById("fsub").innerHTML="Gap above committed <b style='color:var(--ink)'>"+usd(gap)+"</b> · ideal ≈ "+usd(idealFlat)+" per stage; together they cover the gap.";
+      document.getElementById("fsub").innerHTML="Ideal ≈ "+usd(idealFlat)+" per stage; together they cover the gap.";
       document.getElementById("ffoot").textContent="Distributed ideal. Assumes each stage should hold roughly equal pipeline (so higher-probability stages carry more of the weighted coverage). Additive and intuitive, but the even-split is a policy choice. Win-rates are CRM stage probabilities. √-compressed widths; exact figures on hover.";
     } else {
-      document.getElementById("fsub").innerHTML="Gap above committed <b style='color:var(--ink)'>"+usd(gap)+"</b> · each band's % = how much of the gap that stage's weighted pipeline covers.";
+      document.getElementById("fsub").innerHTML="Each band's % = how much of the gap that stage's weighted pipeline covers.";
       document.getElementById("ffoot").textContent="Actual coverage, no assumptions. Light = gross pipeline, fill = weighted (expected) by stage; the % is that stage's share of the gap. Aggregate coverage is the gauge ("+Math.round(covPct*100)+"%). √-compressed widths; exact figures on hover.";
     }
   }
