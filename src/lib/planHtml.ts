@@ -245,7 +245,7 @@ ${BRAND_FONTS}
 
   // ---- Coverage glidepath (one per KPI card) ----
   function glide(host,q){
-    var W=760,H=232,L=54,R=16,T=16,B=38,pw=W-L-R,ph=H-T-B,YMAX=q.ymax,XMAX=q.xmax,col=q.color,tgt=q.target;
+    var W=760,H=371,L=54,R=16,T=16,B=38,pw=W-L-R,ph=H-T-B,YMAX=q.ymax,XMAX=q.xmax,col=q.color,tgt=q.target;
     var x=function(w){return L+(XMAX-w)/XMAX*pw;}, y=function(v){return T+(1-v/YMAX)*ph;};
     var svg=el("svg",{viewBox:"0 0 "+W+" "+H,role:"img","aria-label":q.quarter+" coverage glidepath"});
     for(var gv=0;gv<=YMAX+1;gv+=5e5){svg.appendChild(el("line",{x1:L,x2:W-R,y1:y(gv),y2:y(gv),stroke:"var(--grid)","stroke-width":1}));var t=el("text",{x:L-8,y:y(gv)+3.5,"text-anchor":"end",fill:"var(--ink-3)","font-size":9.5,"font-family":'"NB Mono",monospace'});t.textContent=usdS(gv);svg.appendChild(t);}

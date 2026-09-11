@@ -34,7 +34,7 @@ ${BRAND_FONTS}
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1000px;margin:0 auto;padding:24px 22px 30px}
+  .wrap{max-width:1120px;margin:0 auto;padding:18px 18px 30px}
   .eyebrow{font-family:var(--book);text-transform:uppercase;letter-spacing:3px;font-size:10.5px;color:var(--ink-3)}
   h1{font-family:var(--book);font-weight:400;color:var(--base);font-size:clamp(1.4rem,3vw,2rem);line-height:1.1;letter-spacing:-.02em;margin:8px 0 0;text-wrap:balance}
   .sub{color:var(--ink-2);font-size:13.5px;margin:8px 0 0;max-width:66ch;line-height:1.5}
