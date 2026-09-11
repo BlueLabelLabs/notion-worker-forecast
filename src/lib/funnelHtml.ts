@@ -150,7 +150,7 @@ ${BRAND_FONTS}
     STAGES.forEach(function(s){var g=w.g[s.p]||0,ex=w.ex[s.p]||0;wtd+=g*s.p/100;exSum+=ex;nnSum+=(g-ex);});
     var covPct=w.target?wtd/w.target:0, gapToTgt=Math.max(0,w.target-wtd);
 
-    document.getElementById("asof").textContent=w.label+" · as of "+ASOF;
+    document.getElementById("asof").textContent="as of "+ASOF;
     document.getElementById("sTarget").textContent=usd(w.target);
     document.getElementById("sWon").textContent=usd(w.won);
     document.getElementById("sCov").textContent=usd(wtd)+"  ·  "+Math.round(covPct*100)+"%";
