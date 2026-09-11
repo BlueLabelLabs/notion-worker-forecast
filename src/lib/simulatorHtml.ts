@@ -143,6 +143,7 @@ ${BRAND_FONTS}
 
   var mode="fwd";
   var sel={"Assurity":{count:3,close:"2026-12-12"}}; // forward selections
+  var lastClose="2026-12-31"; // sticky close date applied to newly selected cards
   var revPick="Assurity";
 
   // shared-scale arc sparkline
@@ -173,11 +174,11 @@ ${BRAND_FONTS}
         });
         var dt=ctl.querySelector('input[type=date]');
         dt.addEventListener("click",function(e){e.stopPropagation();});
-        dt.addEventListener("change",function(e){e.stopPropagation();s.close=dt.value;renderCards();render();});
+        dt.addEventListener("change",function(e){e.stopPropagation();s.close=dt.value;lastClose=dt.value;renderCards();render();});
         c.appendChild(ctl); c.appendChild(feas);
       }
       c.addEventListener("click",function(){
-        if(mode==="fwd"){ if(sel[t.name])delete sel[t.name]; else sel[t.name]={count:1,close:"2026-12-31"}; }
+        if(mode==="fwd"){ if(sel[t.name])delete sel[t.name]; else sel[t.name]={count:1,close:lastClose}; }
         else { revPick=t.name; renderReverse(); }
         renderCards(); render();
       });
