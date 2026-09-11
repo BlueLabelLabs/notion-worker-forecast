@@ -22,7 +22,7 @@ function money(n: number): string {
 }
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const qid = (q: string) => q.replace(/\./g, "_");
-const tlabel = (t: number) => `$${(t / 1e6).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}M`;
+const tlabel = (t: number) => `$${(t / 1e6).toFixed(1)}M`;
 
 function quarterEnd(q: string): Date | null {
   const m = /(\d{4})\.Q([1-4])/.exec(q);
@@ -103,6 +103,16 @@ ${BRAND_FONTS}
     --hair:#E2E8F0; --hair-strong:#CBD5E1; --brand:#2424FC; --grid:#E9EDF3; --axis:#CBD5E1;
     --good-ink:#046904; --warn-ink:#8A5A00; --crit-ink:#B02525;
     --font:"NB International Pro","Helvetica Neue",Arial,sans-serif; --book:"NB Book","Helvetica Neue",Arial,sans-serif; --mono:"NB Mono","SFMono-Regular",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --surface:#0E1017; --panel:#161922; --panel-hover:#1C212C; --ink:#E7EAF1; --ink-2:#A6AEBE; --ink-3:#6B7688;
+    --hair:#242938; --hair-strong:#333B4D; --brand:#8A8AFF; --grid:#1E2330; --axis:#333B4D;
+    --good-ink:#5FD08A; --warn-ink:#E0B15A; --crit-ink:#F0857A;
+  }}
+  :root[data-theme="dark"]{
+    --surface:#0E1017; --panel:#161922; --panel-hover:#1C212C; --ink:#E7EAF1; --ink-2:#A6AEBE; --ink-3:#6B7688;
+    --hair:#242938; --hair-strong:#333B4D; --brand:#8A8AFF; --grid:#1E2330; --axis:#333B4D;
+    --good-ink:#5FD08A; --warn-ink:#E0B15A; --crit-ink:#F0857A;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
