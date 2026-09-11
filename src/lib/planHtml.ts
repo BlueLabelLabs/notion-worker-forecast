@@ -245,20 +245,20 @@ ${BRAND_FONTS}
 
   // ---- Coverage glidepath (one per KPI card) ----
   function glide(host,q){
-    var W=760,H=371,L=54,R=16,T=16,B=38,pw=W-L-R,ph=H-T-B,YMAX=q.ymax,XMAX=q.xmax,col=q.color,tgt=q.target;
+    var W=760,H=371,L=76,R=16,T=24,B=56,pw=W-L-R,ph=H-T-B,YMAX=q.ymax,XMAX=q.xmax,col=q.color,tgt=q.target;
     var x=function(w){return L+(XMAX-w)/XMAX*pw;}, y=function(v){return T+(1-v/YMAX)*ph;};
     var svg=el("svg",{viewBox:"0 0 "+W+" "+H,role:"img","aria-label":q.quarter+" coverage glidepath"});
-    for(var gv=0;gv<=YMAX+1;gv+=5e5){svg.appendChild(el("line",{x1:L,x2:W-R,y1:y(gv),y2:y(gv),stroke:"var(--grid)","stroke-width":1}));var t=el("text",{x:L-8,y:y(gv)+3.5,"text-anchor":"end",fill:"var(--ink-3)","font-size":9.5,"font-family":'"NB Mono",monospace'});t.textContent=usdS(gv);svg.appendChild(t);}
+    for(var gv=0;gv<=YMAX+1;gv+=5e5){svg.appendChild(el("line",{x1:L,x2:W-R,y1:y(gv),y2:y(gv),stroke:"var(--grid)","stroke-width":1}));var t=el("text",{x:L-8,y:y(gv)+6,"text-anchor":"end",fill:"var(--ink-3)","font-size":18,"font-family":'"NB Mono",monospace'});t.textContent=usdS(gv);svg.appendChild(t);}
     svg.appendChild(el("line",{x1:L,x2:W-R,y1:y(tgt),y2:y(tgt),stroke:"var(--ink-2)","stroke-width":1.5,"stroke-dasharray":"6 3"}));
-    var tl=el("text",{x:W-R,y:y(tgt)-5,"text-anchor":"end",fill:"var(--ink-2)","font-size":9.5,"font-family":'"NB Book",sans-serif'});tl.setAttribute("letter-spacing","1px");tl.textContent="TARGET · "+q.tlabel;svg.appendChild(tl);
-    for(var w=0;w<=XMAX+.01;w+=(XMAX<=16?2:4)){svg.appendChild(el("line",{x1:x(w),x2:x(w),y1:T,y2:T+ph,stroke:"var(--grid)","stroke-width":1}));var xt=el("text",{x:x(w),y:H-B+16,"text-anchor":"middle",fill:"var(--ink-3)","font-size":9.5,"font-family":'"NB Mono",monospace'});xt.textContent=w;svg.appendChild(xt);}
-    var xl=el("text",{x:L,y:H-B+31,"text-anchor":"start",fill:"var(--ink-3)","font-size":9,"font-family":'"NB Book",sans-serif'});xl.setAttribute("letter-spacing","1px");xl.textContent="◄ WEEKS TO CLOSE";svg.appendChild(xl);
+    var tl=el("text",{x:W-R,y:y(tgt)-7,"text-anchor":"end",fill:"var(--ink-2)","font-size":18,"font-family":'"NB Book",sans-serif'});tl.setAttribute("letter-spacing","1px");tl.textContent="TARGET · "+q.tlabel;svg.appendChild(tl);
+    for(var w=0;w<=XMAX+.01;w+=(XMAX<=16?2:4)){svg.appendChild(el("line",{x1:x(w),x2:x(w),y1:T,y2:T+ph,stroke:"var(--grid)","stroke-width":1}));var xt=el("text",{x:x(w),y:H-B+24,"text-anchor":"middle",fill:"var(--ink-3)","font-size":18,"font-family":'"NB Mono",monospace'});xt.textContent=w;svg.appendChild(xt);}
+    var xl=el("text",{x:L,y:H-B+44,"text-anchor":"start",fill:"var(--ink-3)","font-size":16,"font-family":'"NB Book",sans-serif'});xl.setAttribute("letter-spacing","1px");xl.textContent="◄ WEEKS TO CLOSE";svg.appendChild(xl);
     function path(key){return q.points.map(function(p,i){return (i?"L":"M")+x(p.w).toFixed(1)+" "+y(p[key]*tgt).toFixed(1);}).join(" ");}
     svg.appendChild(el("path",{d:path("c"),fill:"none",stroke:col,"stroke-width":1.6,"stroke-dasharray":"4 3","stroke-opacity":.85,"stroke-linejoin":"round"}));
     svg.appendChild(el("path",{d:path("x"),fill:"none",stroke:col,"stroke-width":2.4,"stroke-linejoin":"round","stroke-linecap":"round"}));
     var last=q.points[q.points.length-1];
     svg.appendChild(el("circle",{cx:x(last.w),cy:y(last.x*tgt),r:4,fill:col,stroke:"var(--surface)","stroke-width":2}));
-    var lb=el("text",{x:x(last.w),y:y(last.x*tgt)-8,fill:col,"font-size":11,"font-family":'"NB Mono",monospace',"font-weight":"600","text-anchor":"middle"});lb.textContent=usdS(last.x*tgt);svg.appendChild(lb);
+    var lb=el("text",{x:x(last.w),y:y(last.x*tgt)-11,fill:col,"font-size":19,"font-family":'"NB Mono",monospace',"font-weight":"600","text-anchor":"end"});lb.textContent=usdS(last.x*tgt);svg.appendChild(lb);
     q.points.forEach(function(p){
       svg.appendChild(el("circle",{cx:x(p.w),cy:y(p.x*tgt),r:2.2,fill:col,"fill-opacity":.55}));
       var hit=el("circle",{cx:x(p.w),cy:y(p.x*tgt),r:11,fill:"transparent"});hit.style.cursor="crosshair";
