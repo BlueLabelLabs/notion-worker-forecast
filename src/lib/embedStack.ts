@@ -100,7 +100,12 @@ export function renderStackedEmbed(sections: string[], title: string): string {
 <title>${title}</title>
 <style>
 ${BRAND_FONTS}
-  html,body{margin:0;padding:0;background:transparent}
+  /* Theme-aware page background so the gap between sections isn't a white band in dark mode. */
+  :root{--pagebg:#FFFFFF}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pagebg:#0E1017}}
+  :root[data-theme="dark"]{--pagebg:#0E1017}
+  html,body{margin:0;padding:0;background:var(--pagebg)}
+  [hidden]{display:none!important}
   .rpt{display:block}
   .rpt + .rpt{margin-top:14px}
 ${blocks.map((b) => b.css).join("\n")}
