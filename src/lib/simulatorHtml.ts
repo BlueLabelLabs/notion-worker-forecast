@@ -69,7 +69,6 @@ ${BRAND_FONTS}
   .readout{display:flex;gap:22px;flex-wrap:wrap;margin:16px 0 2px;align-items:baseline}
   .ro .n{font-family:var(--mono);font-size:23px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
   .ro .k{display:block;font-family:var(--book);text-transform:uppercase;letter-spacing:1.1px;font-size:9px;color:var(--ink-3);margin-top:5px}
-  .stickychart{position:sticky;top:0;z-index:20;background:var(--surface);padding:6px 0 10px;box-shadow:0 8px 10px -8px rgba(15,23,42,.15)}
   .card{border:1px solid var(--hair);border-radius:6px;padding:16px 16px 10px;margin-top:12px;background:var(--surface)}
   .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin-bottom:6px}
   .legend span{display:flex;align-items:center;gap:6px}
@@ -103,16 +102,14 @@ ${BRAND_FONTS}
 
   <div class="hint" id="hint">Click a client to add it to your scenario. Selected clients show a count and close date.</div>
 
-  <div class="stickychart">
-    <div class="readout" id="readout"></div>
-    <div class="card">
-      <div class="legend">
-        <span><i class="sw" style="background:var(--base)"></i>Current weighted pipeline</span>
-        <span><i class="sw" style="background:var(--add)"></i>Simulated (new clients)</span>
-        <span><i class="ln"></i>Target</span>
-      </div>
-      <div class="chart"><div id="chart"></div></div>
+  <div class="readout" id="readout"></div>
+  <div class="card">
+    <div class="legend">
+      <span><i class="sw" style="background:var(--base)"></i>Current weighted pipeline</span>
+      <span><i class="sw" style="background:var(--add)"></i>Simulated (new clients)</span>
+      <span><i class="ln"></i>Target</span>
     </div>
+    <div class="chart"><div id="chart"></div></div>
   </div>
 
   <div class="picker" id="picker"></div>
