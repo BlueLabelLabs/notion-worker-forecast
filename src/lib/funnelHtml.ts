@@ -34,7 +34,7 @@ ${BRAND_FONTS}
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
-  .wrap{max-width:960px;margin:0 auto;padding:22px 20px 30px}
+  .wrap{max-width:1120px;margin:0 auto;padding:18px 18px 30px}
   h1{font-family:var(--book);font-weight:400;color:var(--base);font-size:clamp(1.4rem,3vw,2rem);line-height:1.1;letter-spacing:-.02em;margin:0;text-wrap:balance}
   .rule{border:0;border-top:1px solid var(--hair);margin:16px 0}
   .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
