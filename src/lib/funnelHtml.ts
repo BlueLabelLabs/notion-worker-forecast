@@ -138,7 +138,7 @@ ${BRAND_FONTS}
     "Actual":{title:"Actual coverage by stage", light:"Gross pipeline"}
   };
   var cur=${JSON.stringify(firstKey)}, mode="Distributed", ASOF=${JSON.stringify(meta.asOf)};
-  function usd(n){var a=Math.abs(n);return a>=1e6?"$"+(n/1e6).toFixed(a>=1e7?1:2).replace(/\\.?0+$/,"")+"M":a>=1e3?"$"+Math.round(n/1e3)+"K":"$"+Math.round(n);}
+  function usd(n){var a=Math.abs(n);return a>=1e6?"$"+(n/1e6).toFixed(1)+"M":a>=1e3?"$"+Math.round(n/1e3)+"K":"$"+Math.round(n);}
   var TT=document.getElementById("tt");
   function tip(ev,html){TT.innerHTML=html;TT.classList.add("on");var p=14,ww=TT.offsetWidth,hh=TT.offsetHeight,x=ev.clientX+p,y=ev.clientY+p;if(x+ww>innerWidth)x=ev.clientX-ww-p;if(y+hh>innerHeight)y=ev.clientY-hh-p;TT.style.left=x+"px";TT.style.top=y+"px";}
   function tipOff(){TT.classList.remove("on");}
