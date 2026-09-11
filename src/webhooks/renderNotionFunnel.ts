@@ -110,10 +110,10 @@ worker.webhook("renderNotionFunnel", {
         const nearPct = nearTarget > 0 ? near.reduce((s, p) => s + wtd(p), 0) / nearTarget : 0;
         const fullGap = withTargets.filter((p) => p.q >= curQuarter).reduce((s, p) => s + Math.max(0, p.target - wtd(p)), 0);
 
-        const msg = `:bar_chart: *Notion report updated* — Forecast vs Plan + Coverage Funnel + Simulator · near ${pct(nearPct)} covered, gap ${(fullGap / 1e6).toFixed(1)}M.`;
         const fresh = [...r.created, ...r.migrated];
-        console.log(`[forecast] ${msg} (updated=[${r.updated}] created=[${r.created}] migrated=[${r.migrated}] dupes=${r.deletedDupes} retired=[${retired}])`);
-        await postForecastOps(msg + (fresh.length ? ` :information_source: new report card added at the page end — drag into place once; future refreshes stay put.` : ""));
+        console.log(`[forecast] Notion report updated — near ${pct(nearPct)} covered, gap ${(fullGap / 1e6).toFixed(1)}M (updated=[${r.updated}] created=[${r.created}] migrated=[${r.migrated}] dupes=${r.deletedDupes} retired=[${retired}])`);
+        // Routine "report updated" Slack noise removed; only ping when a NEW card is created and needs dragging into place.
+        if (fresh.length) await postForecastOps(`:information_source: *Forecast report*: new card(s) added at the page end (${fresh.join(", ")}) — drag into place once; future refreshes stay put.`);
       } catch (err) {
         const m = err instanceof Error ? err.message : String(err);
         console.error("[forecast] notion reports failed:", err);
