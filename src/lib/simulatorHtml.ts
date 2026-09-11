@@ -53,9 +53,11 @@ ${BRAND_FONTS}
   .tcard .am{font-size:10.5px;color:var(--ink-3);margin-top:2px;font-family:var(--mono)}
   .tcard svg{width:100%;height:auto;display:block;margin-top:7px}
   .badge{position:absolute;top:9px;right:10px;font-family:var(--mono);font-size:11px;color:var(--add);font-weight:600}
-  .tctl{display:flex;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--hair);flex-wrap:nowrap}
-  .tctl input[type=number]{width:41px}
-  .tctl input[type=date]{width:118px;padding-left:5px;padding-right:2px}
+  .tctl{display:flex;gap:5px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--hair);flex-wrap:nowrap}
+  .tctl .stp{appearance:none;border:1px solid var(--hair-strong);background:var(--surface);color:var(--ink-2);border-radius:5px;width:20px;height:22px;font-size:15px;line-height:1;padding:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .tctl .stp:hover{border-color:var(--base);color:var(--base)}
+  .tctl .qn{font-family:var(--mono);font-size:12.5px;color:var(--ink);min-width:24px;text-align:center;flex:0 0 auto}
+  .tctl input[type=date]{width:94px;padding-left:5px;padding-right:2px;flex:0 1 94px;min-width:80px}
   .tctl .lx{font-size:11px;color:var(--ink-3)}
   .tcard.sel .feas{display:flex}
   .feas{display:none;align-items:center;gap:5px;font-size:10.5px;font-family:var(--book);color:var(--ink-2);width:100%;margin-top:6px}
@@ -162,14 +164,16 @@ ${BRAND_FONTS}
       if(mode==="fwd"&&isSel){
         var s=sel[t.name];
         var ctl=document.createElement("div"); ctl.className="tctl";
-        ctl.innerHTML='<span class="lx">×</span><input type="number" min="1" max="99" value="'+s.count+'" data-f="count"><input type="date" value="'+s.close+'" data-f="close">';
+        ctl.innerHTML='<button type="button" class="stp" data-step="-1">−</button><span class="qn">×'+s.count+'</span><button type="button" class="stp" data-step="1">+</button><input type="date" value="'+s.close+'" data-f="close">';
         var cyc=cycleOf(t), sb=minusWeeks(s.close,cyc), late=sb<TODAY;
         var feas=document.createElement("div"); feas.className="feas"; feas.style.display="flex";
         feas.innerHTML='<span class="fdot" style="background:'+(late?"var(--warn)":"var(--good)")+'"></span>source by '+sb.slice(0,7)+(late?" — past":"")+(t.cycleWeeks==null?" (est cycle)":"");
-        ctl.querySelectorAll("input").forEach(function(inp){
-          inp.addEventListener("click",function(e){e.stopPropagation();});
-          inp.addEventListener("change",function(e){e.stopPropagation();s[inp.dataset.f]=inp.dataset.f==="count"?Math.max(1,+inp.value||1):inp.value;renderCards();render();});
+        ctl.querySelectorAll(".stp").forEach(function(b){
+          b.addEventListener("click",function(e){e.stopPropagation();s.count=Math.max(1,Math.min(99,s.count+(+b.dataset.step)));c.querySelector(".qn").textContent="×"+s.count;var bd=c.querySelector(".badge");if(bd)bd.textContent="×"+s.count;render();});
         });
+        var dt=ctl.querySelector('input[type=date]');
+        dt.addEventListener("click",function(e){e.stopPropagation();});
+        dt.addEventListener("change",function(e){e.stopPropagation();s.close=dt.value;renderCards();render();});
         c.appendChild(ctl); c.appendChild(feas);
       }
       c.addEventListener("click",function(){
