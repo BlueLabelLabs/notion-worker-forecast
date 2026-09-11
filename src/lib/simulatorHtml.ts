@@ -142,8 +142,9 @@ ${BRAND_FONTS}
   function cycleOf(t){return t.cycleWeeks!=null?t.cycleWeeks:COHORT_CYCLE;}
 
   var mode="fwd";
-  var sel={"Assurity":{count:3,close:"2026-12-12"}}; // forward selections
-  var lastClose="2026-12-31"; // sticky close date applied to newly selected cards
+  var DEFAULT_CLOSE=(function(){var d=new Date(TODAY+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+70);return d.toISOString().slice(0,10);})(); // default close: 10 weeks from today
+  var sel={"Assurity":{count:3,close:DEFAULT_CLOSE}}; // forward selections
+  var lastClose=DEFAULT_CLOSE; // sticky close date applied to newly selected cards
   var revPick="Assurity";
 
   // shared-scale arc sparkline
@@ -224,6 +225,7 @@ ${BRAND_FONTS}
 
   // reverse
   var rQuarter=document.getElementById("rQuarter"), rClose=document.getElementById("rClose"), rResult=document.getElementById("rResult");
+  rClose.value=DEFAULT_CLOSE;
   rQuarter.innerHTML=QS.map(function(q){return '<option value="'+q.q+'"'+(q.q==="2026.Q4"?" selected":"")+'>'+q.q+'</option>';}).join("");
   function revNeed(){var t=byName[revPick];if(!t)return 0;var base=QS.filter(function(x){return x.q===rQuarter.value;})[0];if(!base)return 0;var per=(arcToQuarters(t.arc,rClose.value)[rQuarter.value]||0),gap=base.target-base.weighted;if(gap<=0||per<=0)return 0;return Math.ceil(gap/per);}
   function renderReverse(){
