@@ -116,8 +116,11 @@ worker.webhook("renderForecastViews", {
           return title ? { sheetId: id, title } : { sheetId: await ensureTab(token, sheetId, canonical), title: canonical };
         };
 
-        await renderPartnerClientView(token, sheetId, await target(VIEW_TABS.clientView, "Client Partner"), dealsWithOpen, quarters, monthToQuarter, CLIENT_W, clientExtras, rollover);
-        await renderProbabilityView(token, sheetId, await target(VIEW_TABS.pipelineView, "Pipeline"), dealsWithOpen, quarters, monthToQuarter, PIPELINE_W, targets, clientExtras.visiblePeriods);
+        // 0% deals (lost/unqualified) are excluded from Client Partner + Pipeline; they add $0 weighted,
+        // so the Stats/cascade math is unchanged — only the 0% deal rows drop out. Placeholders stay (0<prob<1).
+        const forViews = dealsWithOpen.filter((d) => d.probability > 0);
+        await renderPartnerClientView(token, sheetId, await target(VIEW_TABS.clientView, "Client Partner"), forViews, quarters, monthToQuarter, CLIENT_W, clientExtras, rollover);
+        await renderProbabilityView(token, sheetId, await target(VIEW_TABS.pipelineView, "Pipeline"), forViews, quarters, monthToQuarter, PIPELINE_W, targets, clientExtras.visiblePeriods);
         await renderWeightedPipeline(token, sheetId, await target(VIEW_TABS.weightedMonthly, "Weighted Monthly"), deals, months, monthLabel, WEIGHTED_MONTHLY_W);
         await deleteTabsById(token, sheetId, ORPHAN_TAB_IDS);
         await deleteTabs(token, sheetId, OBSOLETE_TABS);
