@@ -345,10 +345,16 @@ export async function renderPartnerClientView(
     }
   }
   // On rollover: this week's Actions to Grow becomes Last Week's Actions, and Actions to Grow clears.
+  // Idempotent: only a NON-empty Actions rolls in — a repeat rollover (Actions already empty) keeps last
+  // week's value instead of overwriting it with blank, so an accidental double-fire can't wipe the notes.
   const annoFor = (d: DealAgg): string[] => {
     const rec = anno.get(d.dealUrl) ?? anno.get(d.dealTitle) ?? {};
     return annoCols.map((name) =>
-      rollover && name === LAST_WEEK_COL ? rec[ACTIONS_COL] ?? "" : rollover && name === ACTIONS_COL ? "" : rec[name] ?? "",
+      rollover && name === LAST_WEEK_COL
+        ? ((rec[ACTIONS_COL] ?? "").trim() ? rec[ACTIONS_COL]! : rec[LAST_WEEK_COL] ?? "")
+        : rollover && name === ACTIONS_COL
+          ? ""
+          : rec[name] ?? "",
     );
   };
 
