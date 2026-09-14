@@ -103,6 +103,17 @@ const STAGE_COLORS: Record<number, unknown> = {
   0: LIGHT_MAGENTA,
 };
 
+/** Plain-English definition of each probability tier — shown in column B of the Pipeline cascade header. */
+const STAGE_DEFS: Record<number, string> = {
+  100: "Contract signed / Won",
+  80: "Verbally agreed to move forward, price & start date accepted / Closing",
+  60: "Proposal provided with pricing AND have a client champion who wants us to win / Negotiating",
+  40: "Discussing specific initiative scope and timeframe / Estimating",
+  20: "Engaged in qualified discussion of initiative objectives & scope / Qualifying",
+  10: "New Opportunity",
+  0: "Lost / Unqualified",
+};
+
 type ColoredRow = { row: number; bg: unknown; fg?: unknown };
 
 function setBg(sheetId: number, row: number, cols: number, bg: unknown, fg?: unknown) {
@@ -552,7 +563,7 @@ export async function renderProbabilityView(
     const stageDeals = byProb.get(s) ?? [];
     // Header shows for any non-empty stage, and for every cascade tier even when empty (labeled section).
     if (stageDeals.length || (showSummary && CASCADE_STAGES.includes(s) && s !== 0)) {
-      grid.push([`'${s}%`, ...Array(width - 1).fill("")]); // leading ' forces text
+      grid.push([`'${s}%`, STAGE_DEFS[s] ?? "", ...Array(width - 2).fill("")]); // A: stage % (leading ' forces text), B: definition
       coloredRows.push({ row: grid.length - 1, bg: STAGE_COLORS[s] ?? GREEN });
     }
     if (stageDeals.length) {
