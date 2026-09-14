@@ -443,14 +443,15 @@ export async function renderProbabilityView(
   const sumPos = new Map<number, SumRow>();
   for (const s of orderedStages) {
     const n = byProb.get(s)?.length ?? 0;
-    // Cascade tiers always reserve a header row (even with 0 deals) so a tier like 10% with no
-    // scheduled deals yet renders as a labeled section, not a header-less summary block.
-    if (n > 0 || (showSummary && CASCADE_STAGES.includes(s))) cur += 1; // stage header row
+    // Cascade tiers reserve a header row even with 0 deals (a tier like 10% renders as a labeled
+    // section) — except the 0% tier, which is suppressed entirely when it has no deals.
+    const renderTier = showSummary && CASCADE_STAGES.includes(s) && (s !== 0 || n > 0);
+    if (n > 0 || renderTier) cur += 1; // stage header row
     if (n > 0) {
       dealPos.set(s, { start: cur, end: cur + n - 1 });
       cur += n;
     }
-    if (showSummary && CASCADE_STAGES.includes(s)) {
+    if (renderTier) {
       if (CASCADE_STAGES.indexOf(s) === 0) {
         sumPos.set(s, { gap: cur, wt: cur + 1, outGap: cur });
         cur += 2;
@@ -472,7 +473,7 @@ export async function renderProbabilityView(
   const headerRowIndex = 0;
   grid.push([...ATTR, ...periods]); // row 1: header
   if (showSummary) {
-    const finalWt = (sumPos.get(0) ?? sumPos.get(CASCADE_STAGES[CASCADE_STAGES.length - 1]!)!).wt; // 0% cumulative = total weighted
+    const finalWt = (sumPos.get(0) ?? sumPos.get(CASCADE_STAGES[CASCADE_STAGES.length - 2]!)!).wt; // 0% cumulative = total weighted; falls back to 10% when 0% is suppressed (same total)
     const actualWt = sumPos.get(100)?.wt; // 100% committed Weighted Total
     const WV_ROW = 5; // Weighted Value on sheet row 5 (Target on row 6 = TARGET_ROW)
     const hasT = (q: string) => cascadeTargets!.get(q) != null;
@@ -550,7 +551,7 @@ export async function renderProbabilityView(
   for (const s of orderedStages) {
     const stageDeals = byProb.get(s) ?? [];
     // Header shows for any non-empty stage, and for every cascade tier even when empty (labeled section).
-    if (stageDeals.length || (showSummary && CASCADE_STAGES.includes(s))) {
+    if (stageDeals.length || (showSummary && CASCADE_STAGES.includes(s) && s !== 0)) {
       grid.push([`'${s}%`, ...Array(width - 1).fill("")]); // leading ' forces text
       coloredRows.push({ row: grid.length - 1, bg: STAGE_COLORS[s] ?? GREEN });
     }
@@ -564,7 +565,7 @@ export async function renderProbabilityView(
       greyRanges.push({ start: contentStart, end: grid.length });
     }
 
-    if (!showSummary || !CASCADE_STAGES.includes(s)) continue;
+    if (!showSummary || !CASCADE_STAGES.includes(s) || (s === 0 && !stageDeals.length)) continue;
     // Inline summary for this tier (mirrors Current2; 100% consolidated to 2 rows, lower tiers 4).
     const si = CASCADE_STAGES.indexOf(s);
     const sp = sumPos.get(s)!;
