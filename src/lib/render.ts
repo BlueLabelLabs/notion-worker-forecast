@@ -77,6 +77,7 @@ function colA1(i: number): string {
 
 const BLUE = { red: 0.8117647, green: 0.8862745, blue: 0.9529412 };
 const CLIENT_BG = { red: 0.8509804, green: 0.8235294, blue: 0.9137255 }; // client rows (purple)
+const NOTE_ORANGE = { red: 0.9764706, green: 0.79607844, blue: 0.6117647 }; // #F9CB9C — linked callout note row
 const GREEN = { red: 0.85, green: 0.92, blue: 0.83 };
 const GRAY = { red: 0.94, green: 0.94, blue: 0.94 };
 const BLACK = { red: 0, green: 0, blue: 0 };
@@ -661,6 +662,7 @@ export async function renderWeightedPipeline(
   periodOf: (m: string) => string,
   widths: { attr: number[]; period: number },
   topNote?: string, // optional merged note row above the header (e.g. a "this view differs" caption)
+  topNoteUrl?: string, // if set, the note becomes a hyperlink to this URL (orange callout row)
 ): Promise<void> {
   const ATTR = ["Probability", "Deal", "Contract Format"];
   const width = ATTR.length + periods.length;
@@ -669,7 +671,7 @@ export async function renderWeightedPipeline(
   const grid: (string | number)[][] = [];
   if (topNote) {
     const note = Array(width).fill("");
-    note[ATTR.length] = topNote; // first period column; merged across the period columns below
+    note[ATTR.length] = topNoteUrl ? HYPERLINK(topNoteUrl, topNote) : topNote; // first period column; merged across the period columns below
     grid.push(note);
   }
   grid.push([...ATTR, ...periods]);
@@ -704,7 +706,7 @@ export async function renderWeightedPipeline(
     firstPeriodCol: ATTR.length,
     percentCol: 0,
     blackRows: [totalRow],
-    coloredRows: clientRows.map((r) => ({ row: r, bg: CLIENT_BG })),
+    coloredRows: [...(topNote ? [{ row: 0, bg: NOTE_ORANGE }] : []), ...clientRows.map((r) => ({ row: r, bg: CLIENT_BG }))],
     groups,
     attrWidths: widths.attr,
     periodWidth: widths.period,
