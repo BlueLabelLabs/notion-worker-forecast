@@ -660,11 +660,19 @@ export async function renderWeightedPipeline(
   periods: string[],
   periodOf: (m: string) => string,
   widths: { attr: number[]; period: number },
+  topNote?: string, // optional merged note row above the header (e.g. a "this view differs" caption)
 ): Promise<void> {
   const ATTR = ["Probability", "Deal", "Contract Format"];
   const width = ATTR.length + periods.length;
   const blanks = () => Array(width - 1).fill("");
-  const grid: (string | number)[][] = [[...ATTR, ...periods]];
+  const noteOffset = topNote ? 1 : 0;
+  const grid: (string | number)[][] = [];
+  if (topNote) {
+    const note = Array(width).fill("");
+    note[ATTR.length] = topNote; // first period column; merged across the period columns below
+    grid.push(note);
+  }
+  grid.push([...ATTR, ...periods]);
   const clientRows: number[] = [];
   const groups: { start: number; end: number }[] = [];
   const totals = new Map<string, number>(periods.map((p) => [p, 0]));
@@ -700,5 +708,29 @@ export async function renderWeightedPipeline(
     groups,
     attrWidths: widths.attr,
     periodWidth: widths.period,
+    headerRowIndex: noteOffset,
+    frozenRows: 1 + noteOffset, // header (+ note row if present)
+    merges: topNote ? [{ startRow: 0, endRow: 1, startCol: ATTR.length, endCol: width }] : undefined,
+  });
+}
+
+/** Expansion (existing-client) stage re-weighting: current stage % → a higher probability. New logos keep theirs. */
+export const EXPANSION_WEIGHTS: Record<number, number> = { 100: 100, 80: 95, 60: 85, 40: 70, 20: 50, 10: 30 };
+
+/**
+ * Re-weight EXPANSION deals — open deals on a client that already holds a won deal — with the higher
+ * EXPANSION_WEIGHTS probabilities; new-logo deals are unchanged. Returns new DealAgg objects (probability
+ * + byMonthW adjusted); originals are untouched. Feeds the "Variable Probability Weighted Monthly" preview.
+ */
+export function variableWeightDeals(deals: DealAgg[]): DealAgg[] {
+  const won = new Set<string>();
+  for (const d of deals) if (Math.round(d.probability * 100) >= 100 && d.client) won.add(d.client);
+  return deals.map((d) => {
+    const stage = Math.round(d.probability * 100);
+    const isExp = stage < 100 && !!d.client && won.has(d.client);
+    const p = isExp ? EXPANSION_WEIGHTS[stage] ?? stage : stage;
+    if (p === stage) return d;
+    const f = p / 100;
+    return { ...d, probability: p / 100, byMonthW: new Map([...d.byMonth].map(([m, v]) => [m, v * f])) };
   });
 }

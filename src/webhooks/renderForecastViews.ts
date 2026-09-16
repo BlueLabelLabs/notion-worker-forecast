@@ -10,7 +10,7 @@
 
 import { worker, googleAuth } from "../worker.js";
 import { readSegments, readTargets, readOpenPlaceholderDeals } from "../lib/notionForecast.js";
-import { aggregateDeals, renderPartnerClientView, renderProbabilityView, renderWeightedPipeline, ACTIONS_COL, LAST_WEEK_COL, REVENUE_COL, type Target } from "../lib/render.js";
+import { aggregateDeals, renderPartnerClientView, renderProbabilityView, renderWeightedPipeline, variableWeightDeals, ACTIONS_COL, LAST_WEEK_COL, REVENUE_COL, type Target } from "../lib/render.js";
 import { quartersRange, monthsFrom, monthToQuarter } from "../lib/forecast.js";
 import { deleteTabs, deleteTabsById, getSheetMeta, ensureTab } from "../lib/sheets.js";
 import { withSheetsAuthRetry, acquireRenderLock, releaseRenderLock } from "../lib/renderGuard.js";
@@ -21,6 +21,7 @@ const VIEW_TABS = {
   clientView: 1834696165, // "Client Partner" (quarterly)
   pipelineView: 385847462, // "Pipeline" (quarterly)
   weightedMonthly: 519992960, // "Weighted Monthly"
+  variableWeightedMonthly: 1427822577, // "Variable Probability Weighted Monthly" (expansion re-weighting preview)
 } as const;
 
 /** Old duplicate/pivot tabs plus the retired monthly/quarterly views the user dropped. Delete by ID. */
@@ -33,6 +34,7 @@ const ORPHAN_TAB_IDS = [
 const CLIENT_W = { attr: [82, 400, 160], period: 86 };
 const PIPELINE_W = { attr: [100, 134, 400, 160], period: 92 };
 const WEIGHTED_MONTHLY_W = { attr: [82, 400, 160], period: 87 };
+const VARIABLE_NOTE = "This view uses different stage probabilities for new logos vs expansions. More information.";
 
 /** Tabs from earlier iterations that these views replace. */
 const OBSOLETE_TABS = ["By Client — Quarterly (AI)", "By Stage", "By Client Account", "By Delivery Phase", "Company Total"];
@@ -122,6 +124,8 @@ worker.webhook("renderForecastViews", {
         await renderPartnerClientView(token, sheetId, await target(VIEW_TABS.clientView, "Client Partner"), forViews, quarters, monthToQuarter, CLIENT_W, clientExtras, rollover);
         await renderProbabilityView(token, sheetId, await target(VIEW_TABS.pipelineView, "Pipeline"), forViews, quarters, monthToQuarter, PIPELINE_W, targets, clientExtras.visiblePeriods);
         await renderWeightedPipeline(token, sheetId, await target(VIEW_TABS.weightedMonthly, "Weighted Monthly"), deals, months, monthLabel, WEIGHTED_MONTHLY_W);
+        // Preview: same layout, expansion deals re-weighted with higher stage probabilities (new logos unchanged).
+        await renderWeightedPipeline(token, sheetId, await target(VIEW_TABS.variableWeightedMonthly, "Variable Probability Weighted Monthly"), variableWeightDeals(deals), months, monthLabel, WEIGHTED_MONTHLY_W, VARIABLE_NOTE);
         await deleteTabsById(token, sheetId, ORPHAN_TAB_IDS);
         await deleteTabs(token, sheetId, OBSOLETE_TABS);
       }
