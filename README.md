@@ -60,6 +60,7 @@ src/
 
 ```bash
 npm run typecheck
+npm test
 npm run test:forecast
 npm run dev
 ```
