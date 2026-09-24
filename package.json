@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test:forecast": "tsx src/lib/forecast.test.ts",
     "dev": "ntn workers dev",
-    "deploy": "ntn workers deploy"
+    "deploy": "ntn workers deploy",
+    "deploy:ci": "ntn workers deploy --yes"
   },
   "dependencies": {
     "@notionhq/workers": "^0.4.0"

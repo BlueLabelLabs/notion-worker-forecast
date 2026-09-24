@@ -197,3 +197,18 @@ rare new-card notices post to `#forecast-ops`.
   captured in schedules: Blue Stream Fiber, Ventrickle, Orange EV, GeniusLink,
   Morgan Group — the fix is upstream (log expansion as won schedules), not
   hardcoding finance numbers.
+
+## Deploying
+
+```bash
+npm run deploy      # local and cloud both work
+npm run deploy:ci   # same, with --yes
+```
+
+This worker declares **no** managed `worker.database` (it is webhook-only, with no
+syncs), so `ntn workers deploy` does not prompt for confirmation and plain
+`npm run deploy` works from a cloud session.
+
+`deploy:ci` exists for consistency with the sibling workers, and matters only if a
+`worker.sync` is ever added here — syncs require a managed database, and a deploy
+that touches linked databases prompts, which a cloud session cannot answer.
