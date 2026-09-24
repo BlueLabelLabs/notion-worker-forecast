@@ -75,9 +75,10 @@ Sheet is safe.
 **These tabs are overwritten on every render.** To change a layout, hand-edit it in the
 Sheet, then replicate that edit in `render.ts`.
 
-- **Pipeline** has an 8-row Stats block (QoQ Target Growth, QoQ Actual Growth, Closed,
-  Weighted Value, Target, Weighted Gap, Coverage %, Closed %). Header and merges span rows
-  1–11, and deals start at row 12. The empty 0% tier is suppressed.
+- **Pipeline** has a 9-row Stats block (QoQ Target Growth, QoQ Actual Growth, Closed,
+  Weighted Value, Target, Weighted Gap, Gap to Target, Coverage %, Closed %). Gap to Target
+  is Closed − Target. Header and merges span rows 1–12, and deals start at row 13. The
+  empty 0% tier is suppressed.
 - **Client Partner** preserves "Actions to Grow" and "Last Week's Actions" across renders,
   keyed by the Deal HYPERLINK URL. Rollover fires only on a `{"rollover":true}` payload from
   the Sheet's Apps Script menu, and is **idempotent**: it only moves a non-empty Actions

@@ -433,7 +433,7 @@ export async function renderProbabilityView(
   const blank = () => Array(width).fill("") as (string | number)[];
   const showSummary = !!cascadeTargets;
   const col = (i: number) => colA1(P0 + i);
-  const TARGET_ROW = 6; // Target on sheet row 6 (header row 1, Stats rows 2-9)
+  const TARGET_ROW = 6; // Target on sheet row 6 (header row 1, Stats rows 2-10)
 
   // Group deals by probability %; deal section shows the present stages high → low.
   const byProb = new Map<number, DealAgg[]>();
@@ -451,8 +451,8 @@ export async function renderProbabilityView(
 
   // --- Pass 1: 1-based sheet rows. Each stage is [header + deals] immediately followed by its OWN
   // summary rows, so cascade formulas (which reference the prior tier's rows) still resolve above. ---
-  // Layout: row 1 = header, rows 2-9 = Stats, row 10 = spacer, row 11 = repeated column header, deals from row 12.
-  const headerRow = showSummary ? 11 : 1; // the column-header row directly above the deals
+  // Layout: row 1 = header, rows 2-10 = Stats, row 11 = spacer, row 12 = repeated column header, deals from row 13.
+  const headerRow = showSummary ? 12 : 1; // the column-header row directly above the deals
   let cur = headerRow + 1;
   const dealPos = new Map<number, { start: number; end: number }>();
   // 100% is consolidated to 2 rows (Gap to Target, Weighted Total=SUM); lower stages keep 4.
@@ -486,13 +486,14 @@ export async function renderProbabilityView(
   const groups: { start: number; end: number }[] = [];
   const greyRanges: { start: number; end: number }[] = []; // grey Contract-Format on deal rows only (not summary labels)
 
-  // Top block: header (row 1) → Stats (rows 2-7) → spacer (row 8) → repeated column header (row 9).
+  // Top block: header (row 1) → Stats (rows 2-10) → spacer (row 11) → repeated column header (row 12).
   // A/B/C are merged down the whole block so the Client Partner/Client/Deal labels span it.
   const headerRowIndex = 0;
   grid.push([...ATTR, ...periods]); // row 1: header
   if (showSummary) {
     const finalWt = (sumPos.get(0) ?? sumPos.get(CASCADE_STAGES[CASCADE_STAGES.length - 2]!)!).wt; // 0% cumulative = total weighted; falls back to 10% when 0% is suppressed (same total)
     const actualWt = sumPos.get(100)?.wt; // 100% committed Weighted Total
+    const CLOSED_ROW = 4; // Closed on sheet row 4
     const WV_ROW = 5; // Weighted Value on sheet row 5 (Target on row 6 = TARGET_ROW)
     const hasT = (q: string) => cascadeTargets!.get(q) != null;
     // r2: QoQ Target Growth = (this Target − prev) / prev; blank when either quarter's target is missing.
@@ -539,14 +540,22 @@ export async function renderProbabilityView(
       if (hasT(q)) wgap[P0 + i] = `=${col(i)}${WV_ROW}-${col(i)}${TARGET_ROW}`;
     });
     grid.push(wgap);
-    // r8: Coverage % = Weighted Value ÷ Target.
+    // r8: Gap to Target = Closed − Target (committed only, no pipeline).
+    const cgap = blank();
+    cgap[labelCol] = "Gap to Target";
+    if (actualWt)
+      periods.forEach((q, i) => {
+        if (hasT(q)) cgap[P0 + i] = `=${col(i)}${CLOSED_ROW}-${col(i)}${TARGET_ROW}`;
+      });
+    grid.push(cgap);
+    // r9: Coverage % = Weighted Value ÷ Target.
     const cov = blank();
     cov[labelCol] = "Coverage %";
     periods.forEach((q, i) => {
       if (hasT(q)) cov[P0 + i] = `=${col(i)}${WV_ROW}/${col(i)}${TARGET_ROW}`;
     });
     grid.push(cov);
-    // r9: Closed % = committed (100% Weighted Total) ÷ Target.
+    // r10: Closed % = committed (100% Weighted Total) ÷ Target.
     const closed = blank();
     closed[labelCol] = "Closed %";
     if (actualWt)
@@ -554,15 +563,15 @@ export async function renderProbabilityView(
         if (hasT(q)) closed[P0 + i] = `=${col(i)}${actualWt}/${col(i)}${TARGET_ROW}`;
       });
     grid.push(closed);
-    grid.push(blank()); // r8: spacer
-    // r9: repeated column header directly above the deals (A-C blank — merged with row 1).
+    grid.push(blank()); // r11: spacer
+    // r12: repeated column header directly above the deals (A-C blank — merged with row 1).
     const h2 = blank();
     h2[labelCol] = ATTR[labelCol]!; // "Contract Format"
     periods.forEach((q, i) => (h2[P0 + i] = q));
     grid.push(h2);
-    groups.push({ start: 1, end: 11 }); // collapsible top block (rows 2-11: Stats + spacer + repeated header)
+    groups.push({ start: 1, end: 12 }); // collapsible top block (rows 2-12: Stats + spacer + repeated header)
     // Top block: #efefef bg; header row (row 1, incl. the merged A/B/C labels) black text, the rest grey.
-    for (let r = 0; r <= 10; r++) coloredRows.push({ row: r, bg: SUMMARY_BG, fg: r === 0 ? BLACK : GREY_ROW_TEXT });
+    for (let r = 0; r <= 11; r++) coloredRows.push({ row: r, bg: SUMMARY_BG, fg: r === 0 ? BLACK : GREY_ROW_TEXT });
   }
 
   // Body: each stage's deal group (collapsible), then its summary rows at the bottom of that stage.
@@ -639,12 +648,12 @@ export async function renderProbabilityView(
     periodWidth: widths.period,
     headerRowIndex,
     greyRows: greyRanges,
-    percentRows: showSummary ? [1, 2, 7, 8] : [], // QoQ Target Growth (r2), QoQ Actual Growth (r3), Coverage % (r8), Closed % (r9)
+    percentRows: showSummary ? [1, 2, 8, 9] : [], // QoQ Target Growth (r2), QoQ Actual Growth (r3), Coverage % (r9), Closed % (r10)
     boldRows: [], // unbolded top block
     hideCols: visiblePeriods ? periods.map((q, i) => (visiblePeriods.includes(q) ? -1 : ATTR.length + i)).filter((c) => c >= 0) : undefined,
-    frozenRows: showSummary ? 11 : undefined, // freeze header + Stats + spacer + repeated header
-    // Merge A/B/C down over the whole top block so the header labels span rows 1-11.
-    merges: showSummary ? [0, 1, 2].map((c) => ({ startRow: 0, endRow: 11, startCol: c, endCol: c + 1 })) : undefined,
+    frozenRows: showSummary ? 12 : undefined, // freeze header + Stats + spacer + repeated header
+    // Merge A/B/C down over the whole top block so the header labels span rows 1-12.
+    merges: showSummary ? [0, 1, 2].map((c) => ({ startRow: 0, endRow: 12, startCol: c, endCol: c + 1 })) : undefined,
   });
 }
 

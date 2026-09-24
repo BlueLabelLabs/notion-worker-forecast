@@ -85,9 +85,10 @@ so renaming them in the Sheet is safe.
 is: hand-edit the layout in the Sheet, then replicate that edit in `render.ts`.
 Do not assume a Sheet edit will survive.
 
-Pipeline Stats is 8 rows (QoQ Target Growth, QoQ Actual Growth, Closed, Weighted
-Value, Target, Weighted Gap, Coverage %, Closed %). Header and merges span rows
-1–11; deals start at row 12. `TARGET_ROW=6`, `WV_ROW=5`. The empty 0% cascade
+Pipeline Stats is 9 rows (QoQ Target Growth, QoQ Actual Growth, Closed, Weighted
+Value, Target, Weighted Gap, Gap to Target, Coverage %, Closed %). Header and
+merges span rows 1–12; deals start at row 13. `CLOSED_ROW=4`, `WV_ROW=5`,
+`TARGET_ROW=6`. Gap to Target (row 8) is Closed − Target. The empty 0% cascade
 tier is suppressed.
 
 ## Notion embed
