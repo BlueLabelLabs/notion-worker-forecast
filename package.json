@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Notion Worker that spreads Deal Revenue Schedule segments into monthly revenue (committed + weighted) and writes a tidy fact table to the Forecast Dashboard Google Sheet for native pivots.",
+  "description": "Notion Worker that builds BlueLabel's monthly revenue forecast from Deal Revenue Schedules, rewrites the Client Partner, Pipeline, and Weighted Monthly tabs of the Forecast Dashboard Google Sheet, and publishes a stacked HTML dashboard to Notion.",
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
