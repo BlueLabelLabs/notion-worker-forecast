@@ -12,13 +12,6 @@ This is **not** the dppt worker. If dppt context appears in a session, ignore it
 Always write **"BlueLabel"** — never "Blue Label", "Blue Label Labs", or "BLL".
 This applies to code, comments, commit messages, and anything rendered.
 
-## ⚠️ README.md is out of date
-
-`README.md` describes the original fork's design: a single tidy "Forecast Facts"
-fact table for pivot tables. That is **historical**. The worker now renders three
-formatted Sheet tabs and a stacked Notion embed. Trust this file and the source
-over the README.
-
 ## Data sources
 
 Notion, queried via `notion.dataSources.query({ data_source_id })`. IDs live in
