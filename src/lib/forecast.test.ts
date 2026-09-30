@@ -3,7 +3,7 @@
  */
 
 import assert from "node:assert/strict";
-import { spreadSegment, computeFacts, factsToGrid, FACT_HEADERS, type Segment } from "./forecast.js";
+import { spreadSegment, computeFacts, factsToGrid, FACT_HEADERS, focusQuarter, nextQuarter, type Segment } from "./forecast.js";
 
 const base: Omit<Segment, "start" | "end" | "weeklyRevenue" | "stageProbability"> = {
   dealId: "d1",
@@ -81,5 +81,15 @@ const grid = factsToGrid(facts);
 assert.deepEqual(grid[0], FACT_HEADERS.slice());
 assert.equal(grid.length, 1 + 2, "header + 2 rows");
 assert.equal(grid[1]!.length, FACT_HEADERS.length, "row width matches headers");
+
+// KPI focus quarter: the current quarter until its last 28 days, then the next one.
+assert.equal(nextQuarter("2026.Q3"), "2026.Q4");
+assert.equal(nextQuarter("2026.Q4"), "2027.Q1", "Q4 rolls into next year");
+assert.equal(focusQuarter(new Date("2026-08-15T12:00:00Z")), "2026.Q3", "mid-quarter → current");
+assert.equal(focusQuarter(new Date("2026-09-01T12:00:00Z")), "2026.Q3", "29 days left → current");
+assert.equal(focusQuarter(new Date("2026-09-02T12:00:00Z")), "2026.Q4", "28 days left → next");
+assert.equal(focusQuarter(new Date("2026-09-30T12:00:00Z")), "2026.Q4", "last day → next");
+assert.equal(focusQuarter(new Date("2026-12-20T12:00:00Z")), "2027.Q1", "late Q4 → next year's Q1");
+assert.equal(focusQuarter(new Date("2026-10-01T12:00:00Z")), "2026.Q4", "new quarter → current");
 
 console.log("✓ all forecast.test assertions passed");

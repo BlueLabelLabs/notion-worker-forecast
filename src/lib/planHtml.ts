@@ -1,12 +1,13 @@
 /**
  * "Forecast vs Plan" report for a Notion embed:
- *   • Two coverage KPI cards (current quarter + next) on top — gap to target on the
+ *   • Two coverage KPI cards (current quarter + next; the next two once the current quarter is
+ *     in its last 4 weeks) on top — gap to target on the
  *     left, Coverage % / Closed % on the right — each expandable to that quarter's
  *     coverage glidepath (weighted pipeline + closed vs target, by weeks to close).
  *   • A stacked weighted-forecast-vs-target bar chart below, over a rolling window
  *     (2 prior quarters + current + next) with a "Next 2 / Next 4" toggle. Each bar
- *     is coloured by its quarter: the current quarter matches the first KPI card
- *     (blue), the next matches the second (teal); every other quarter is grey.
+ *     is coloured by its quarter: the first KPI card's quarter is blue, the second's is
+ *     teal; every other quarter is grey.
  * No headings, prose, or table. Brand fonts. Charts are built by inline JS.
  */
 
@@ -38,16 +39,23 @@ function weeksToEnd(q: string): number | null {
 const CUR = "#2424FC";
 const NXT = "#0D9488";
 
-export function renderPlanHtml(rows: PlanRow[], meta: { asOf: string; nowQuarter?: string }, glide: GlideSeries[] = []): string {
+export function renderPlanHtml(rows: PlanRow[], meta: { asOf: string; nowQuarter?: string; kpiQuarter?: string }, glide: GlideSeries[] = []): string {
   const data = rows.map((r) => {
     const tot = r.signed + r.contW + r.newW;
     return { q: r.q, t: r.target, s: r.signed, cw: r.contW, nw: r.newW, tot, gap: tot - r.target, pc: (tot / (r.target || 1)) * 100 };
   });
   const nowIdx = meta.nowQuarter ? rows.findIndex((r) => r.q === meta.nowQuarter) : -1;
+  const kpiQ = meta.kpiQuarter ?? meta.nowQuarter;
+  const kpiIdx = kpiQ ? rows.findIndex((r) => r.q === kpiQ) : -1;
 
-  // Per-quarter glidepath series for the KPI charts (current = blue, next = teal).
-  const GLIDE = glide
-    .filter((s) => s.points.length > 1)
+  // Per-quarter glidepath series for the KPI charts (first card = blue, second = teal).
+  // Both charts share one Y axis so the two quarters compare at a glance.
+  const series = glide.filter((s) => s.points.length > 1);
+  const sharedYMax = Math.max(
+    5e5,
+    ...series.map((s) => Math.ceil(Math.max(s.target * 1.2, ...s.points.map((p) => Math.max(p.cov, p.closed) * s.target)) / 5e5) * 5e5),
+  );
+  const GLIDE = series
     .map((s, k) => {
       const maxWte = Math.max(...s.points.map((p) => p.wte), 4);
       return {
@@ -55,7 +63,7 @@ export function renderPlanHtml(rows: PlanRow[], meta: { asOf: string; nowQuarter
         color: k === 0 ? CUR : NXT,
         tlabel: tlabel(s.target),
         target: s.target,
-        ymax: Math.ceil((s.target * 1.2) / 5e5) * 5e5,
+        ymax: sharedYMax,
         xmax: Math.ceil(maxWte / 4) * 4,
         points: s.points.map((p) => ({ w: p.wte, c: p.cov, x: p.closed, d: p.date })),
       };
@@ -88,7 +96,7 @@ export function renderPlanHtml(rows: PlanRow[], meta: { asOf: string; nowQuarter
         <div class="gchart" id="g-${qid(d.q)}"></div>
       </div></details>`;
   }
-  const kpis = kpi(nowIdx, CUR) + kpi(nowIdx + 1, NXT);
+  const kpis = kpi(kpiIdx, CUR) + kpi(kpiIdx + 1, NXT);
 
   return `<!doctype html>
 <html lang="en">
@@ -196,6 +204,7 @@ ${BRAND_FONTS}
 (function(){
   var PLAN = ${JSON.stringify(data)};
   var NOWIDX = ${nowIdx};
+  var KPIIDX = ${kpiIdx};
   var GLIDE = ${JSON.stringify(GLIDE)};
   var NS="http://www.w3.org/2000/svg";
   function el(tag,a){var e=document.createElementNS(NS,tag);for(var k in a)e.setAttribute(k,a[k]);return e;}
@@ -210,14 +219,14 @@ ${BRAND_FONTS}
   // ---- Plan bar chart (windowed) ----
   var BLUE=["#2424FC","#6E6EFD","#A3A3FE"], TEAL=["#0D9488","#59B3AB","#A7D8D2"], GREY=["#64748B","#94A3B8","#CBD5E1"];
   function windowFor(mode){
-    var base=(NOWIDX<0?0:NOWIDX);
-    var start=Math.max(0, base-2), end=Math.min(PLAN.length, base + (mode==="4"?4:2));
-    return {rows:PLAN.slice(start,end), nowRel:NOWIDX-start};
+    var base=(NOWIDX<0?0:NOWIDX), fwd=(KPIIDX<0?base:KPIIDX);
+    var start=Math.max(0, base-2), end=Math.min(PLAN.length, fwd + (mode==="4"?4:2));
+    return {rows:PLAN.slice(start,end), nowRel:NOWIDX-start, kpiRel:fwd-start};
   }
   function draw(mode){
     var host=document.getElementById("c-plan"); host.innerHTML="";
-    var win=windowFor(mode), P=win.rows, nowRel=win.nowRel;
-    function fam(i){return i===nowRel?BLUE:(i===nowRel+1?TEAL:GREY);}
+    var win=windowFor(mode), P=win.rows, nowRel=win.nowRel, kpiRel=win.kpiRel;
+    function fam(i){return i===kpiRel?BLUE:(i===kpiRel+1?TEAL:GREY);}
     var W=1040,H=350,PL=58,PR=18,PT=30,PB=44,pw=W-PL-PR,ph=H-PT-PB;
     var band=pw/Math.max(P.length,1), bw=Math.min(60,band*0.52);
     var rawMax=Math.max.apply(null,P.map(function(p){return Math.max(p.t,p.tot);}).concat([5e5]));

@@ -137,6 +137,25 @@ export function monthToQuarter(month: string): string {
   return `${y}.Q${Math.floor((m! - 1) / 3) + 1}`;
 }
 
+/** The quarter after "YYYY.Q#" (e.g. "2026.Q4" → "2027.Q1"). */
+export function nextQuarter(q: string): string {
+  const [y, n] = q.split(".Q").map(Number);
+  return n! >= 4 ? `${y! + 1}.Q1` : `${y}.Q${n! + 1}`;
+}
+
+/**
+ * First of the two quarters the Forecast vs Plan KPI cards focus on. Normally the current
+ * quarter; once it is within `closingDays` of ending (the last ~4 weeks), it is effectively
+ * decided, so the cards move on to the next two quarters instead.
+ */
+export function focusQuarter(now: Date = new Date(), closingDays = 28): string {
+  const cur = monthToQuarter(`${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`);
+  const endMonth0 = (Number(cur.slice(-1)) - 1) * 3 + 2;
+  const qEnd = Date.UTC(now.getUTCFullYear(), endMonth0 + 1, 0); // last day of the quarter
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return (qEnd - today) / 864e5 <= closingDays ? nextQuarter(cur) : cur;
+}
+
 /** N consecutive month keys starting at a base "YYYY-MM" (default: current UTC month). */
 export function monthsFrom(count: number, base?: string): string[] {
   const now = new Date();

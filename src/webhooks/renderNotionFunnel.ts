@@ -10,7 +10,7 @@
 import { worker, googleAuth } from "../worker.js";
 import { readSegments, readTargets, readStageCycles } from "../lib/notionForecast.js";
 import { aggregateDeals } from "../lib/render.js";
-import { monthToQuarter, quartersRange } from "../lib/forecast.js";
+import { focusQuarter, monthToQuarter, quartersRange } from "../lib/forecast.js";
 import { computeGlidepath, type GlideSeries } from "../lib/glidepath.js";
 import { buildTemplates, buildBaseline } from "../lib/simulator.js";
 import { buildFunnelWindows } from "../lib/coverageFunnel.js";
@@ -48,8 +48,10 @@ worker.webhook("renderNotionFunnel", {
         const now = new Date();
         const asOf = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/New_York" });
         const curQuarter = monthToQuarter(`${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`);
+        // KPI cards cover two quarters: current + next, or the next two once the current one is closing.
+        const kpiQuarter = focusQuarter(now);
 
-        // Coverage glidepath for the current + next quarter (drives the expandable KPI charts).
+        // Coverage glidepath for the two KPI-card quarters (drives the expandable KPI charts).
         // Read from the append-only Snapshots tab; resilient — if unavailable, the KPI cards just
         // won't expand and the rest of the report still renders.
         let glide: GlideSeries[] = [];
@@ -57,7 +59,7 @@ worker.webhook("renderNotionFunnel", {
           const sheetId = process.env.FORECAST_SHEET_ID;
           if (sheetId) {
             const quarters = quartersRange();
-            const ci = quarters.indexOf(curQuarter);
+            const ci = quarters.indexOf(kpiQuarter);
             const forQ = ci >= 0 ? quarters.slice(ci, ci + 2) : [];
             const snapRows = await getValuesUnformatted(await googleAuth.accessToken(), sheetId, "Snapshots!A2:U100000");
             glide = computeGlidepath(snapRows, targets, quarters, forQ);
@@ -68,7 +70,7 @@ worker.webhook("renderNotionFunnel", {
 
         // Forecast vs Plan — all target quarters + coverage KPI cards (with glidepath) on top.
         const planRows = computePlanRows(segments, targets);
-        const htmlPlan = renderPlanHtml(planRows, { asOf, nowQuarter: curQuarter }, glide);
+        const htmlPlan = renderPlanHtml(planRows, { asOf, nowQuarter: curQuarter, kpiQuarter }, glide);
 
         // Gap-closing simulator — client revenue-arc templates + coverage baseline, driven in-browser.
         // Resilient: if the arc/cycle read fails, we still publish the plan on its own.
