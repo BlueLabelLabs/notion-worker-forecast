@@ -216,6 +216,14 @@ ${BRAND_FONTS}
   function ttHide(){TT.classList.remove("on");}
   function row(sw,label,val){return '<div class="tt-r"><span class="l">'+(sw?'<i class="sw" style="background:'+sw+'"></i>':'')+label+'</span><span class="v">'+val+'</span></div>';}
 
+  // Share of a "YYYY.Q#" quarter elapsed as of today (0..1), and whole days left in it.
+  function quarterProgress(q){
+    var m=/(\\d{4})\\.Q([1-4])/.exec(q); if(!m)return {frac:0,left:0};
+    var y=+m[1], m0=(+m[2]-1)*3, start=Date.UTC(y,m0,1), end=Date.UTC(y,m0+3,1), d=new Date();
+    var today=Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
+    return {frac:Math.min(1,Math.max(0,(today-start+864e5)/(end-start))), left:Math.max(0,Math.round((end-today)/864e5))};
+  }
+
   // ---- Plan bar chart (windowed) ----
   var BLUE=["#2424FC","#6E6EFD","#A3A3FE"], TEAL=["#0D9488","#59B3AB","#A7D8D2"], GREY=["#64748B","#94A3B8","#CBD5E1"];
   function windowFor(mode){
@@ -233,7 +241,15 @@ ${BRAND_FONTS}
     var YMAX=Math.ceil(rawMax/5e5)*5e5, y=function(v){return PT+ph-(v/YMAX)*ph;};
     var svg=el("svg",{viewBox:"0 0 "+W+" "+H,width:W,role:"img","aria-label":"Weighted forecast vs target by quarter"});
     for(var g=0;g<=4;g++){var tv=YMAX*g/4;svg.appendChild(el("line",{x1:PL,x2:W-PR,y1:y(tv),y2:y(tv),stroke:g===0?"var(--axis)":"var(--grid)","stroke-width":g===0?1.3:1}));var yl=el("text",{x:PL-9,y:y(tv)+3.5,"text-anchor":"end",fill:"var(--ink-3)","font-size":10,"font-family":'"NB Mono",monospace'});yl.textContent=g===0?"0":usdS(tv);svg.appendChild(yl);}
-    if(nowRel>0){var nx=PL+band*nowRel;svg.appendChild(el("line",{x1:nx,x2:nx,y1:PT-8,y2:PT+ph,stroke:"var(--ink)","stroke-width":1.3,opacity:.4}));var nl=el("text",{x:nx+6,y:PT-12,fill:"var(--ink-2)","font-size":9.5,"font-family":'"NB Book",sans-serif'});nl.setAttribute("letter-spacing","1.4px");nl.textContent="NOW";svg.appendChild(nl);}
+    // NOW slides across the current quarter's column as the quarter elapses (computed in the
+    // viewer's browser, so it stays accurate between refreshes). Drawn before the bars, so it
+    // passes behind them.
+    if(nowRel>=0&&nowRel<P.length){
+      var qp=quarterProgress(P[nowRel].q), nx=PL+band*(nowRel+qp.frac);
+      svg.appendChild(el("line",{x1:nx,x2:nx,y1:PT-8,y2:PT+ph,stroke:"var(--ink)","stroke-width":1.2,opacity:.35}));
+      var right=nx>W-PR-150, nl=el("text",{x:right?nx-6:nx+6,y:PT-12,"text-anchor":right?"end":"start",fill:"var(--ink-2)","font-size":9.5,"font-family":'"NB Book",sans-serif'});
+      nl.setAttribute("letter-spacing","1.4px");nl.textContent="NOW · "+(qp.left<=0?"QUARTER CLOSED":qp.left+(qp.left===1?" DAY":" DAYS")+" LEFT");svg.appendChild(nl);
+    }
     var hl=el("rect",{x:PL,y:PT,width:band,height:ph,fill:"var(--brand)","fill-opacity":".06",opacity:0,"pointer-events":"none"});svg.appendChild(hl);
     P.forEach(function(p,i){
       var cx=PL+band*i+band/2, x=cx-bw/2, acc=0, cols=fam(i);
