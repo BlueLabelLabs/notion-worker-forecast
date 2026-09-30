@@ -118,7 +118,7 @@ ${BRAND_FONTS}
 (function(){
   var TEMPLATES=${JSON.stringify(templates)};
   var BASELINE=${JSON.stringify(baseline)};
-  var TODAY=${JSON.stringify(meta.today)}, CURQ=${JSON.stringify(meta.curQuarter)}, COHORT_CYCLE=8, ASOF=${JSON.stringify(meta.asOf)};
+  var TODAY=${JSON.stringify(meta.today)}, CURQ=${JSON.stringify(meta.curQuarter)}, COHORT_CYCLE=8;
   var QS=BASELINE.filter(function(b){return b.target>0 && b.q>=CURQ;});
   var byName={}; TEMPLATES.forEach(function(t){byName[t.name]=t;});
   var GMAX=0; TEMPLATES.forEach(function(t){t.arc.forEach(function(v){if(v>GMAX)GMAX=v;});}); // shared arc scale
@@ -243,7 +243,7 @@ ${BRAND_FONTS}
   mF.addEventListener("click",function(){setMode("fwd");});
   mR.addEventListener("click",function(){setMode("rev");});
 
-  document.getElementById("foot").innerHTML="Cards share one revenue scale (peak ≈ "+usdS(GMAX)+"/mo). Arc = each client's real committed revenue by month since landing. Baseline = current weighted pipeline vs target · as of "+ASOF+". Cycle from Deal Stage Changes where tracked, else ~"+COHORT_CYCLE+"w est.";
+  document.getElementById("foot").innerHTML="Cards share one revenue scale (peak ≈ "+usdS(GMAX)+"/mo). Arc = each client's real committed revenue by month since landing. Baseline = current weighted pipeline vs target. Cycle from Deal Stage Changes where tracked, else ~"+COHORT_CYCLE+"w est.";
   renderCards(); render();
 })();
 </script>
