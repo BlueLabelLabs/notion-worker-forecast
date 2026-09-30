@@ -35,14 +35,12 @@ ${BRAND_FONTS}
   *{box-sizing:border-box}
   body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
   .wrap{max-width:1120px;margin:0 auto;padding:18px 18px 30px}
-  h1{font-family:var(--book);font-weight:400;color:var(--base);font-size:clamp(1.4rem,3vw,2rem);line-height:1.1;letter-spacing:-.02em;margin:0;text-wrap:balance}
-  .rule{border:0;border-top:1px solid var(--hair);margin:16px 0}
+  h1{font-family:var(--book);font-weight:400;color:var(--base);font-size:clamp(1.4rem,3vw,2rem);line-height:1.1;letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance}
   .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
   .clabel{font-size:12.5px;color:var(--ink-3)}
   .seg{display:inline-flex;border:1px solid var(--hair-strong);border-radius:20px;overflow:hidden}
   .seg button{appearance:none;border:0;background:transparent;color:var(--ink-2);font-family:var(--book);font-size:12.5px;padding:6px 14px;cursor:pointer}
   .seg button.on{background:var(--base);color:#fff}
-  .asof{margin-left:auto;font-size:12px;color:var(--ink-3)}
   .stats{display:flex;gap:24px;flex-wrap:wrap;align-items:baseline;margin:14px 0 4px}
   .stat .n{font-family:var(--mono);font-size:23px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
   .stat .k{display:block;font-family:var(--book);text-transform:uppercase;letter-spacing:1.1px;font-size:9px;color:var(--ink-3);margin-top:5px}
@@ -86,14 +84,12 @@ ${BRAND_FONTS}
 
 <div class="wrap">
   <h1>Is our pipeline enough to hit the target?</h1>
-  <hr class="rule">
 
   <div class="controls">
     <span class="clabel">Through:</span>
     <div class="seg" id="segWin"></div>
     <span class="clabel" style="margin-left:8px">Model:</span>
     <div class="seg" id="segMode"></div>
-    <span class="asof" id="asof"></span>
   </div>
 
   <div class="stats">
@@ -150,7 +146,6 @@ ${BRAND_FONTS}
     STAGES.forEach(function(s){var g=w.g[s.p]||0,ex=w.ex[s.p]||0;wtd+=g*s.p/100;exSum+=ex;nnSum+=(g-ex);});
     var covPct=w.target?wtd/w.target:0, gapToTgt=Math.max(0,w.target-wtd);
 
-    document.getElementById("asof").textContent="as of "+ASOF;
     document.getElementById("sTarget").textContent=usd(w.target);
     document.getElementById("sWon").textContent=usd(w.won);
     document.getElementById("sCov").textContent=usd(wtd)+"  ·  "+Math.round(covPct*100)+"%";

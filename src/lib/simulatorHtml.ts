@@ -35,9 +35,7 @@ ${BRAND_FONTS}
   *{box-sizing:border-box}
   body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
   .wrap{max-width:1120px;margin:0 auto;padding:18px 18px 30px}
-  .eyebrow{font-family:var(--book);text-transform:uppercase;letter-spacing:3px;font-size:10.5px;color:var(--ink-3)}
-  h1{font-family:var(--book);font-weight:400;color:var(--base);font-size:clamp(1.4rem,3vw,2rem);line-height:1.1;letter-spacing:-.02em;margin:8px 0 0;text-wrap:balance}
-  .sub{color:var(--ink-2);font-size:13.5px;margin:8px 0 0;max-width:66ch;line-height:1.5}
+  h1{font-family:var(--book);font-weight:400;color:var(--base);font-size:clamp(1.4rem,3vw,2rem);line-height:1.1;letter-spacing:-.02em;margin:0;text-wrap:balance}
   .rule{border:0;border-top:1px solid var(--hair);margin:16px 0}
   .modes{display:inline-flex;border:1px solid var(--hair-strong);border-radius:20px;overflow:hidden}
   .modes button{appearance:none;border:0;background:transparent;color:var(--ink-2);font-family:var(--book);font-size:12.5px;padding:6px 15px;cursor:pointer}
@@ -85,9 +83,7 @@ ${BRAND_FONTS}
 </style>
 
 <div class="wrap">
-  <div class="eyebrow">Gap-closing simulator · BlueLabel</div>
   <h1>What would it take to close the gap?</h1>
-  <p class="sub">Pick clients modeled on real ones we've landed — each card is that client's actual revenue arc (discovery → expansion), all drawn on one scale so sizes compare. Revenue starts at close, so a new client's near-quarter impact is small and builds over the following year.</p>
   <hr class="rule">
 
   <div class="modes"><button id="mFwd" class="on" type="button">Forward · what-if</button><button id="mRev" type="button">Reverse · solve</button></div>
