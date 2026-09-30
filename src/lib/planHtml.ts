@@ -278,15 +278,30 @@ ${BRAND_FONTS}
     var last=q.points[q.points.length-1];
     svg.appendChild(el("circle",{cx:x(last.w),cy:y(last.x*tgt),r:4,fill:col,stroke:"var(--surface)","stroke-width":2}));
     var lb=el("text",{x:x(last.w),y:y(last.x*tgt)-11,fill:col,"font-size":19,"font-family":'"NB Mono",monospace',"font-weight":"600","text-anchor":"end"});lb.textContent=usdS(last.x*tgt);svg.appendChild(lb);
-    q.points.forEach(function(p){
-      svg.appendChild(el("circle",{cx:x(p.w),cy:y(p.x*tgt),r:2.2,fill:col,"fill-opacity":.55}));
-      var hit=el("circle",{cx:x(p.w),cy:y(p.x*tgt),r:11,fill:"transparent"});hit.style.cursor="crosshair";
-      var html='<div class="tt-h">'+q.quarter+' · '+p.d+'</div>'+row(null,"Weeks out",p.w)+row(col,"Coverage",Math.round(p.c*100)+"% · "+usdS(p.c*tgt))+row(col,"Closed",Math.round(p.x*100)+"% · "+usdS(p.x*tgt))+row(null,"Target",q.tlabel);
-      hit.addEventListener("mouseenter",function(e){ttShow(e,html);});
-      hit.addEventListener("mousemove",ttMove);
-      hit.addEventListener("mouseleave",ttHide);
-      svg.appendChild(hit);
-    });
+    q.points.forEach(function(p){svg.appendChild(el("circle",{cx:x(p.w),cy:y(p.x*tgt),r:2.2,fill:col,"fill-opacity":.55}));});
+    // Hover anywhere in the plot: a gentle guide snaps to the nearest snapshot (by weeks to close),
+    // marks its closed + weighted points, and shows that snapshot's detail — like the bar chart.
+    var guide=el("line",{x1:0,x2:0,y1:T,y2:T+ph,stroke:"var(--ink-3)","stroke-width":1,"stroke-dasharray":"3 3",opacity:0,"pointer-events":"none"});
+    var dotC=el("circle",{cx:0,cy:0,r:4.5,fill:"var(--surface)",stroke:col,"stroke-width":2,opacity:0,"pointer-events":"none"});
+    var dotX=el("circle",{cx:0,cy:0,r:5,fill:col,stroke:"var(--surface)","stroke-width":2,opacity:0,"pointer-events":"none"});
+    [guide,dotC,dotX].forEach(function(n){svg.appendChild(n);});
+    function tip(p){return '<div class="tt-h">'+q.quarter+' · '+p.d+'</div>'+row(null,"Weeks out",p.w)+row(col,"Coverage",Math.round(p.c*100)+"% · "+usdS(p.c*tgt))+row(col,"Closed",Math.round(p.x*100)+"% · "+usdS(p.x*tgt))+row(null,"Target",q.tlabel);}
+    function nearest(ev){
+      var pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;var sx=pt.matrixTransform(svg.getScreenCTM().inverse()).x;
+      var best=q.points[0],bd=Infinity;q.points.forEach(function(p){var d=Math.abs(x(p.w)-sx);if(d<bd){bd=d;best=p;}});return best;
+    }
+    function mark(ev){
+      var p=nearest(ev),px=x(p.w);
+      guide.setAttribute("x1",px);guide.setAttribute("x2",px);guide.setAttribute("opacity",1);
+      dotC.setAttribute("cx",px);dotC.setAttribute("cy",y(p.c*tgt));dotC.setAttribute("opacity",1);
+      dotX.setAttribute("cx",px);dotX.setAttribute("cy",y(p.x*tgt));dotX.setAttribute("opacity",1);
+      ttShow(ev,tip(p));
+    }
+    var hit=el("rect",{x:L,y:T,width:pw,height:ph,fill:"transparent"});hit.style.cursor="crosshair";
+    hit.addEventListener("mouseenter",mark);
+    hit.addEventListener("mousemove",mark);
+    hit.addEventListener("mouseleave",function(){[guide,dotC,dotX].forEach(function(n){n.setAttribute("opacity",0);});ttHide();});
+    svg.appendChild(hit);
     host.appendChild(svg);
   }
   GLIDE.forEach(function(q){var host=document.getElementById("g-"+q.quarter.replace(/\\./g,"_"));if(host)glide(host,q);});

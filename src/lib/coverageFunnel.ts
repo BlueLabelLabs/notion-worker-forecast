@@ -6,7 +6,7 @@
  */
 
 import type { DealAgg } from "./render.js";
-import { monthToQuarter } from "./forecast.js";
+import { focusQuarter, monthToQuarter } from "./forecast.js";
 
 /** Open probability tiers shown in the funnel (0% dropped — lost/unqualified; 100% is Won). */
 const CASCADE = [10, 20, 40, 60, 80];
@@ -29,9 +29,12 @@ export type FunnelWindow = {
   n: Record<number, number>; // deal count, per stage
 };
 
-/** Two near windows: the current quarter, and cumulatively through the next. Targeted quarters only. */
+/**
+ * Two near windows: the focus quarter, and cumulatively through the next. Targeted quarters only.
+ * The focus quarter is the current one, or the next once the current is in its last 4 weeks.
+ */
 export function buildFunnelWindows(deals: DealAgg[], targets: Map<string, number>, now: Date = new Date()): FunnelWindow[] {
-  const curQ = monthToQuarter(`${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`);
+  const curQ = focusQuarter(now);
   const withT = [...targets.keys()].sort().filter((q) => q >= curQ && (targets.get(q) ?? 0) > 0);
   if (withT.length === 0) return [];
   const cur = withT[0]!;

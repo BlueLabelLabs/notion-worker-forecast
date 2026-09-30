@@ -48,7 +48,8 @@ worker.webhook("renderNotionFunnel", {
         const now = new Date();
         const asOf = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/New_York" });
         const curQuarter = monthToQuarter(`${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`);
-        // KPI cards cover two quarters: current + next, or the next two once the current one is closing.
+        // The report focuses on two quarters: current + next, or the next two once the current one is
+        // closing. Drives the KPI cards, the coverage funnel windows, and the simulator's quarters.
         const kpiQuarter = focusQuarter(now);
 
         // Coverage glidepath for the two KPI-card quarters (drives the expandable KPI charts).
@@ -79,7 +80,7 @@ worker.webhook("renderNotionFunnel", {
           const wonSegs = await readSegments(notion, { includeArchived: true });
           let cycles = new Map<string, { first: string; won: string | null }>();
           try { cycles = await readStageCycles(notion); } catch (e) { console.warn("[forecast] stage cycles unavailable:", e instanceof Error ? e.message : e); }
-          htmlSim = renderSimulatorHtml(buildTemplates(wonSegs, cycles), buildBaseline(deals, targets, quartersRange()), { asOf, curQuarter, today: now.toISOString().slice(0, 10) });
+          htmlSim = renderSimulatorHtml(buildTemplates(wonSegs, cycles), buildBaseline(deals, targets, quartersRange()), { asOf, curQuarter: kpiQuarter, today: now.toISOString().slice(0, 10) });
         } catch (e) {
           console.warn("[forecast] simulator unavailable:", e instanceof Error ? e.message : e);
         }
@@ -104,13 +105,13 @@ worker.webhook("renderNotionFunnel", {
         let retired: string[] = [];
         try { retired = await retireReportEmbeds(token, PAGE_ID, RETIRED_FILES); } catch (e) { console.warn("[forecast] retire failed:", e instanceof Error ? e.message : e); }
 
-        // Near-term coverage from the plan rows (weighted pipeline ÷ target for current + next quarter).
+        // Near-term coverage from the plan rows (weighted pipeline ÷ target for the two focus quarters).
         const withTargets = planRows.filter((p) => p.target > 0);
-        const near = withTargets.filter((p) => p.q >= curQuarter).slice(0, 2);
+        const near = withTargets.filter((p) => p.q >= kpiQuarter).slice(0, 2);
         const wtd = (p: (typeof planRows)[number]) => p.signed + p.contW + p.newW;
         const nearTarget = near.reduce((s, p) => s + p.target, 0);
         const nearPct = nearTarget > 0 ? near.reduce((s, p) => s + wtd(p), 0) / nearTarget : 0;
-        const fullGap = withTargets.filter((p) => p.q >= curQuarter).reduce((s, p) => s + Math.max(0, p.target - wtd(p)), 0);
+        const fullGap = withTargets.filter((p) => p.q >= kpiQuarter).reduce((s, p) => s + Math.max(0, p.target - wtd(p)), 0);
 
         const fresh = [...r.created, ...r.migrated];
         console.log(`[forecast] Notion report updated — near ${pct(nearPct)} covered, gap ${(fullGap / 1e6).toFixed(1)}M (updated=[${r.updated}] created=[${r.created}] migrated=[${r.migrated}] dupes=${r.deletedDupes} retired=[${retired}])`);
