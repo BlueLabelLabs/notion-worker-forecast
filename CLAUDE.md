@@ -206,3 +206,63 @@ syncs), so `ntn workers deploy` does not prompt for confirmation and plain
 `deploy:ci` exists for consistency with the sibling workers, and matters only if a
 `worker.sync` is ever added here — syncs require a managed database, and a deploy
 that touches linked databases prompts, which a cloud session cannot answer.
+
+## Weekly pipeline delta ("what changed since last week")
+
+When asked for the week-over-week pipeline change, produce the Slack-ready
+format below. Do not add intros, totals-by-stage, or a "things to watch" close.
+
+**Data.** Read the Snapshots tab of the Forecast Dashboard Sheet (schema in
+`src/lib/snapshot.ts`). Compare the latest `snapshot_date` against the previous
+one. Key rows by `deal_id`. `probability` is a fraction (0.4 = 40%). Weighted
+pipeline for a quarter = that quarter's gross column × probability, counting
+only open deals (0% < probability < 100%). Won (100%) and lost (0%) deals
+contribute $0 to weighted, so a deal that closes shows up as a weighted drop.
+
+**Scope.** One block per quarter: the current quarter and the next one.
+
+**Format.**
+
+```
+### 2026.Q4 Weighted Pipeline: −$80k ($649k → $568k)
+NFM −$43k
+
+* "Forecast 2026" placeholder removed
+* Cash Match & Reconciliation to 60%
+* Delivery Billing added
+
+Ergo +$50k
+
+* PortfolioWatch added at 40%
+
+NTI −$24k
+
+* Security Updates won, weighted pipeline goes down, but closed goes up :blob-clap:
+* Boarding Pass Upload added: +$5k
+
+
+### 2027.Q1 Weighted Pipeline: +$85k ($1.1M → $1.2M)
+…
+```
+
+- Quarter header is an H3: `### YYYY.Q# Weighted Pipeline: ±$Xk ($before → $after)`.
+  No blank line between the header and the first client line. Two blank lines
+  between quarter blocks.
+- Under each quarter, one section per client with the client's net weighted
+  delta: `Client ±$Xk`, blank line, then `* ` bullets, blank line. Sort clients
+  by absolute delta, largest first. Drop clients whose net moves less than $10k.
+- Use short client names (NFM, NTI, Ergo, Savant). Deal names drop the client
+  prefix and the BL number ("Cash Match & Reconciliation", not "BL380.## |
+  Nebraska Furniture Mart Cash Match & Reconciliation").
+- Numbers: lowercase `k`, Unicode minus `−`, millions to one decimal, thousands
+  rounded. Client lines always carry the number. Bullets usually do not; include
+  a per-deal figure only when it adds something the client line does not (an
+  offset running against the client's net, or a resize where the before → after
+  is the point, e.g. "Phase 1 resized $275k → $225k").
+- Bullet order within a client: the drivers in the direction of the client's
+  net first, largest first, then the offsets.
+- Bullet wording is one short clause: "placeholder removed", "to 60%", "added
+  at 40%", "resized to $402k", "to 0%". Call synthetic forecast rows
+  "placeholder".
+- A deal moving to 100% is good news. Write it as "<deal> won, weighted pipeline
+  goes down, but closed goes up :blob-clap:".
