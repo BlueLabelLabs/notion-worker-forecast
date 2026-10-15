@@ -334,7 +334,7 @@ function startDateRules(range: { sheetId: number; startRowIndex: number; endRowI
     ranges: [range],
     booleanRule: {
       condition: { type: "CUSTOM_FORMULA", values: [{ userEnteredValue: `=AND(ISDATE(${e}),${e}>=TODAY(),${e}<=TODAY()+${days}${openRef ? `,${openRef}` : ""})` }] },
-      format: { backgroundColor: bg },
+      format: { backgroundColor: bg, textFormat: { foregroundColor: BLACK } }, // black text: grey reads poorly on the fill
     },
   }));
 }
