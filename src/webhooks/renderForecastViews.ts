@@ -32,7 +32,7 @@ const ORPHAN_TAB_IDS = [
 
 /** Hand-tuned column widths (px), read from the user's tabs. attr = per attribute column, period = uniform. */
 const CLIENT_W = { attr: [82, 400, 160], period: 86 };
-const PIPELINE_W = { attr: [100, 134, 400, 160], period: 92 };
+const PIPELINE_W = { attr: [100, 134, 400, 160, 119], period: 92 };
 const WEIGHTED_MONTHLY_W = { attr: [82, 400, 160], period: 87 };
 const VARIABLE_NOTE = "This view uses different stage probabilities for new logos vs expansions. More information.";
 const VARIABLE_NOTE_URL = "https://app.notion.com/p/bluelabellabs/Client-Solutions-Pipeline-Stages-43d69bd22d114dd58bc7bbad77068892?source=copy_link#2f14ed0080788021bdb5d32fd5dc6719";
@@ -92,7 +92,11 @@ worker.webhook("renderForecastViews", {
         // Open-stage deals with no revenue schedule yet — shown at $0 in the Pipeline and Client Partner
         // views so early pipeline is visible before it's scheduled. Kept out of Weighted Monthly.
         const have = new Set(deals.map((d) => d.dealId));
-        const placeholders = (await readOpenPlaceholderDeals(notion)).filter((d) => !have.has(d.dealId));
+        const { placeholders: open, startDates } = await readOpenPlaceholderDeals(notion);
+        const placeholders = open.filter((d) => !have.has(d.dealId));
+        // Pipeline "Start Date": the deal's own Notion Start Date; aggregateDeals pre-fills the earliest
+        // schedule start as a fallback for deals that leave it blank.
+        for (const d of deals) d.startDate = startDates.get(d.dealId) ?? d.startDate;
         openCount = placeholders.length;
         const dealsWithOpen = [...deals, ...placeholders];
         const targets = await readTargets(notion);

@@ -173,7 +173,7 @@ export async function getColumnWidths(token: string, spreadsheetId: string, tab:
 export async function getSheetStructure(token: string, spreadsheetId: string): Promise<unknown> {
   const url =
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}` +
-    `?fields=${encodeURIComponent("sheets(properties(sheetId,title,gridProperties),rowGroups,merges,conditionalFormats)")}`;
+    `?fields=${encodeURIComponent("sheets(properties(sheetId,title,gridProperties),rowGroups,columnGroups,merges,conditionalFormats)")}`;
   return sheetsRequestJson(token, url, "spreadsheets.get.structure");
 }
 

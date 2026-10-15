@@ -91,6 +91,11 @@ merges span rows 1–12; deals start at row 13. `CLOSED_ROW=4`, `WV_ROW=5`,
 `TARGET_ROW=6`. Gap to Target (row 8) is Closed − Target. The empty 0% cascade
 tier is suppressed.
 
+Pipeline columns A–E are attributes: Client Partner, Client, Deal, Contract Format,
+Start Date (the deal's Notion Start Date, else its earliest schedule start). Start
+Date is its own column group, collapsed on every render; the 100% (signed) deal
+group also renders collapsed so the open pipeline shows first.
+
 ## Notion embed
 
 One draggable embed, `forecast_vs_plan.html`, stacking three reports in order:

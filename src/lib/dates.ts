@@ -16,6 +16,13 @@ export function excelSerialToDate(serial: number): Date {
   return new Date(SERIAL_EPOCH_MS + Math.round(serial) * MS_PER_DAY);
 }
 
+/** "YYYY-MM-DD" (time part ignored) → Sheets serial day number, or null if unparseable. */
+export function isoToSerial(iso: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  return Math.round((Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - SERIAL_EPOCH_MS) / MS_PER_DAY);
+}
+
 /** Format a serial date as `M/D/YY` (e.g. 5/4/26), matching the DPPT template. */
 export function formatMDY(serial: number): string {
   const d = excelSerialToDate(serial);

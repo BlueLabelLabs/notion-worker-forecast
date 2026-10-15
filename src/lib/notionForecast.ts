@@ -138,10 +138,11 @@ export const DEALS_DS = "ee89a6dd-be27-4bc5-bc5f-86b6ef40be2b";
  * still surface in the Pipeline view (in their probability tier, at $0 across every period). "Open"
  * = 0 < Stage Probability < 1, which excludes Won (1.0) and dead/parked stages (0), and is robust to
  * stage renames. Deals that already have schedules are skipped — they arrive via readSegments with
- * real, time-phased revenue.
+ * real, time-phased revenue. The same pass also returns every deal's Notion "Start Date" (by deal id).
  */
-export async function readOpenPlaceholderDeals(notion: Client): Promise<DealAgg[]> {
+export async function readOpenPlaceholderDeals(notion: Client): Promise<{ placeholders: DealAgg[]; startDates: Map<string, string> }> {
   const out: DealAgg[] = [];
+  const startDates = new Map<string, string>();
   let cursor: string | undefined;
   do {
     const res = await notion.dataSources.query({ data_source_id: DEALS_DS, start_cursor: cursor, page_size: 100 });
@@ -149,6 +150,8 @@ export async function readOpenPlaceholderDeals(notion: Client): Promise<DealAgg[
       const id = (page as { id?: string }).id ?? "";
       const props = (page as { properties?: Props }).properties;
       if (!id || !props) continue;
+      const start = notionPropertyToDate(props["Start Date"]);
+      if (start) startDates.set(id, start.slice(0, 10));
       const prob = numberOf(props["Stage Probability"]);
       if (!(prob > 0 && prob < 1)) continue; // open stages only — not Won (1.0), not dead/0%
       const sched = props["📆 Deal Revenue Schedule"] as { type?: string; relation?: unknown[] } | undefined;
@@ -163,11 +166,12 @@ export async function readOpenPlaceholderDeals(notion: Client): Promise<DealAgg[
         probability: prob,
         byMonth: new Map(),
         byMonthW: new Map(),
+        startDate: start?.slice(0, 10),
       });
     }
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
   } while (cursor);
-  return out;
+  return { placeholders: out, startDates };
 }
 
 /** Query Deal Revenue Schedule rows → Segment[]. Non-archived only, unless includeArchived (for historical arcs). */

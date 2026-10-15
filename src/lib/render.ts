@@ -9,6 +9,7 @@
 import { batchUpdate, getSheetStructure, writeValues, clearValues, getValuesFormula } from "./sheets.js";
 import { spreadSegment, type Segment } from "./forecast.js";
 import { CASCADE_STAGES } from "./coverage.js";
+import { isoToSerial } from "./dates.js";
 
 export type DealAgg = {
   dealId: string;
@@ -20,6 +21,7 @@ export type DealAgg = {
   probability: number; // 0..1
   byMonth: Map<string, number>; // raw $ per "YYYY-MM"
   byMonthW: Map<string, number>; // probability-weighted $ per "YYYY-MM"
+  startDate?: string; // "YYYY-MM-DD": the deal's Notion Start Date, else its earliest schedule start
 };
 
 /** Group segments into deal-level aggregates with raw monthly revenue. */
@@ -43,6 +45,7 @@ export function aggregateDeals(segments: Segment[]): DealAgg[] {
       };
       byDeal.set(key, d);
     }
+    if (s.start && (!d.startDate || s.start < d.startDate)) d.startDate = s.start.slice(0, 10);
     for (const c of spreadSegment(s)) {
       d.byMonth.set(c.month, (d.byMonth.get(c.month) ?? 0) + c.amount);
       d.byMonthW.set(c.month, (d.byMonthW.get(c.month) ?? 0) + c.weighted);
@@ -142,7 +145,10 @@ async function writeOutline(
     percentCol?: number;
     blackRows: number[];
     coloredRows: ColoredRow[];
-    groups: { start: number; end: number }[];
+    groups: { start: number; end: number; collapsed?: boolean }[];
+    colGroups?: { start: number; end: number; collapsed?: boolean }[]; // column groups (0-based, end-exclusive)
+    greyFromCol?: number; // first column of the grey-text attribute block on deal rows (default: last attribute col)
+    dateCols?: number[]; // column indices formatted as centred M/d/yyyy dates below the header
     attrWidths: number[]; // pixel width per attribute column (0..firstPeriodCol-1)
     periodWidth: number; // pixel width for every period column
     headerRowIndex?: number; // 0-based grid row of the header (default 0); rows above it are summary/top rows
@@ -165,12 +171,13 @@ async function writeOutline(
   await writeValues(token, spreadsheetId, `${title}!A${hr + 1}`, [grid[hr]!], "RAW");
 
   const struct = (await getSheetStructure(token, spreadsheetId)) as {
-    sheets?: { properties?: { title?: string; sheetId?: number }; rowGroups?: { range?: unknown }[]; conditionalFormats?: unknown[] }[];
+    sheets?: { properties?: { title?: string; sheetId?: number }; rowGroups?: { range?: unknown }[]; columnGroups?: { range?: unknown }[]; conditionalFormats?: unknown[] }[];
   };
   const sheet = (struct.sheets ?? []).find((s) => s.properties?.sheetId === sheetId)!;
 
   const reqs: unknown[] = [];
   for (const g of sheet.rowGroups ?? []) if (g.range) reqs.push({ deleteDimensionGroup: { range: g.range } });
+  for (const g of sheet.columnGroups ?? []) if (g.range) reqs.push({ deleteDimensionGroup: { range: g.range } });
   // Unhide every row: deleting a collapsed group leaves its rows hidden, and boundaries shift as deals
   // are added/removed — so reset visibility each render (mirrors the column unhide below) or rows strand hidden.
   reqs.push({ updateDimensionProperties: { range: { sheetId, dimension: "ROWS", startIndex: 0, endIndex: grid.length }, properties: { hiddenByUser: false }, fields: "hiddenByUser" } });
@@ -228,14 +235,22 @@ async function writeOutline(
         fields: "userEnteredFormat.textFormat.bold",
       },
     });
-  // Grey text on the Contract Format column (last attribute col) for deal rows only.
+  // Grey text on the trailing attribute column(s) (Contract Format, …) for deal rows only.
   const greys = opts.greyRows ?? [{ start: hr + 1, end: grid.length }];
   for (const grey of greys)
     reqs.push({
       repeatCell: {
-        range: { sheetId, startRowIndex: grey.start, endRowIndex: grey.end, startColumnIndex: opts.firstPeriodCol - 1, endColumnIndex: opts.firstPeriodCol },
+        range: { sheetId, startRowIndex: grey.start, endRowIndex: grey.end, startColumnIndex: opts.greyFromCol ?? opts.firstPeriodCol - 1, endColumnIndex: opts.firstPeriodCol },
         cell: { userEnteredFormat: { textFormat: { foregroundColor: GREY_TEXT } } },
         fields: "userEnteredFormat.textFormat.foregroundColor",
+      },
+    });
+  for (const c of opts.dateCols ?? [])
+    reqs.push({
+      repeatCell: {
+        range: { sheetId, startRowIndex: hr + 1, endRowIndex: grid.length, startColumnIndex: c, endColumnIndex: c + 1 },
+        cell: { userEnteredFormat: { numberFormat: { type: "DATE", pattern: "M/d/yyyy" }, horizontalAlignment: "CENTER" } },
+        fields: "userEnteredFormat(numberFormat,horizontalAlignment)",
       },
     });
   for (const g of opts.groups) reqs.push({ addDimensionGroup: { range: { sheetId, dimension: "ROWS", startIndex: g.start, endIndex: g.end } } });
@@ -266,6 +281,13 @@ async function writeOutline(
     for (const c of opts.hideCols)
       reqs.push({ updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: c, endIndex: c + 1 }, properties: { hiddenByUser: true }, fields: "hiddenByUser" } });
   }
+  // Column groups, then collapse any flagged row/column groups. Runs after the unhide resets above,
+  // so a collapsed group's rows/columns end up hidden (expandable from the group's +/- control).
+  for (const g of opts.colGroups ?? []) reqs.push({ addDimensionGroup: { range: { sheetId, dimension: "COLUMNS", startIndex: g.start, endIndex: g.end } } });
+  for (const [dim, gs] of [["ROWS", opts.groups], ["COLUMNS", opts.colGroups ?? []]] as const)
+    for (const g of gs)
+      if (g.collapsed)
+        reqs.push({ updateDimensionGroup: { dimensionGroup: { range: { sheetId, dimension: dim, startIndex: g.start, endIndex: g.end }, depth: 1, collapsed: true }, fields: "collapsed" } });
   // Conditional format: muted grey text on $0 deal cells (blank group-row cells aren't numbers, so untouched).
   reqs.push({
     addConditionalFormatRule: {
@@ -426,10 +448,11 @@ export async function renderProbabilityView(
   cascadeTargets?: Map<string, number>,
   visiblePeriods?: string[],
 ): Promise<void> {
-  const ATTR = ["Client Partner", "Client", "Deal", "Contract Format"];
+  const ATTR = ["Client Partner", "Client", "Deal", "Contract Format", "Start Date"];
   const width = ATTR.length + periods.length;
   const P0 = ATTR.length; // first period column index
-  const labelCol = ATTR.length - 1; // Contract Format column — top/summary labels live here
+  const labelCol = 3; // Contract Format column — top/summary labels live here
+  const startCol = 4; // Start Date: its own collapsed column group, expandable next to Contract Format
   const blank = () => Array(width).fill("") as (string | number)[];
   const showSummary = !!cascadeTargets;
   const col = (i: number) => colA1(P0 + i);
@@ -483,7 +506,7 @@ export async function renderProbabilityView(
   // --- Pass 2: build the grid. Calculated cells are formulas referencing the rows above. ---
   const grid: (string | number)[][] = [];
   const coloredRows: ColoredRow[] = [];
-  const groups: { start: number; end: number }[] = [];
+  const groups: { start: number; end: number; collapsed?: boolean }[] = [];
   const greyRanges: { start: number; end: number }[] = []; // grey Contract-Format on deal rows only (not summary labels)
 
   // Top block: header (row 1) → Stats (rows 2-10) → spacer (row 11) → repeated column header (row 12).
@@ -567,6 +590,7 @@ export async function renderProbabilityView(
     // r12: repeated column header directly above the deals (A-C blank — merged with row 1).
     const h2 = blank();
     h2[labelCol] = ATTR[labelCol]!; // "Contract Format"
+    h2[startCol] = ATTR[startCol]!; // "Start Date"
     periods.forEach((q, i) => (h2[P0 + i] = q));
     grid.push(h2);
     groups.push({ start: 1, end: 12 }); // collapsible top block (rows 2-12: Stats + spacer + repeated header)
@@ -586,9 +610,11 @@ export async function renderProbabilityView(
       const contentStart = grid.length;
       for (const d of stageDeals.sort((x, y) => x.clientPartner.localeCompare(y.clientPartner) || x.dealTitle.localeCompare(y.dealTitle))) {
         const bp = dealByPeriod(d, periods, periodOf);
-        grid.push([d.clientPartner, d.client, HYPERLINK(d.dealUrl, d.dealTitle), d.contractType, ...periods.map((pp) => Math.round(bp.get(pp) ?? 0))]);
+        grid.push([d.clientPartner, d.client, HYPERLINK(d.dealUrl, d.dealTitle), d.contractType, (d.startDate && isoToSerial(d.startDate)) ?? "", ...periods.map((pp) => Math.round(bp.get(pp) ?? 0))]);
       }
-      groups.push({ start: contentStart, end: grid.length }); // collapse deals; the stage's summary stays visible below
+      // Deals are a collapsible group; the stage's summary stays visible below. The 100% (signed) group
+      // starts collapsed so the open pipeline is what you see first.
+      groups.push({ start: contentStart, end: grid.length, collapsed: s === 100 });
       greyRanges.push({ start: contentStart, end: grid.length });
     }
 
@@ -639,11 +665,14 @@ export async function renderProbabilityView(
 
   await writeOutline(token, spreadsheetId, target, grid, {
     width,
-    frozenCols: 4,
+    frozenCols: P0,
     firstPeriodCol: P0,
     blackRows: [],
     coloredRows,
     groups,
+    colGroups: [{ start: startCol, end: startCol + 1, collapsed: true }], // Start Date hidden by default
+    greyFromCol: labelCol, // Contract Format + Start Date
+    dateCols: [startCol],
     attrWidths: widths.attr,
     periodWidth: widths.period,
     headerRowIndex,
