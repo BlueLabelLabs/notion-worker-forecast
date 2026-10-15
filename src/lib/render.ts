@@ -323,6 +323,22 @@ async function writeOutline(
   await batchUpdate(token, spreadsheetId, reqs);
 }
 
+/**
+ * Start-date highlight rules for a single-column range: red within 14 days, orange within 28 (red listed
+ * first, so it wins). `openRef`, when given, is an extra condition that must hold too (e.g. "$A2<1" to
+ * skip signed deals); like the date cell, it is written relative to the range's first row.
+ */
+function startDateRules(range: { sheetId: number; startRowIndex: number; endRowIndex: number; startColumnIndex: number; endColumnIndex: number }, openRef?: string): unknown[] {
+  const e = `${colA1(range.startColumnIndex)}${range.startRowIndex + 1}`;
+  return ([[14, SOON_RED], [28, NOTE_ORANGE]] as const).map(([days, bg]) => ({
+    ranges: [range],
+    booleanRule: {
+      condition: { type: "CUSTOM_FORMULA", values: [{ userEnteredValue: `=AND(ISDATE(${e}),${e}>=TODAY(),${e}<=TODAY()+${days}${openRef ? `,${openRef}` : ""})` }] },
+      format: { backgroundColor: bg },
+    },
+  }));
+}
+
 /** Annotation columns on the Client Partner view. Weekly rollover shifts ACTIONS_COL → LAST_WEEK_COL. */
 export const ACTIONS_COL = "Actions to Grow";
 export const LAST_WEEK_COL = "Last Week's Actions";
@@ -340,7 +356,8 @@ export async function renderPartnerClientView(
   extras?: { annotationCols: string[]; annotationWidths: number[]; visiblePeriods: string[] },
   rollover = false, // weekly rollover: shift "Actions to Grow" → "Last Week's Actions", then clear it
 ): Promise<void> {
-  const ATTR = ["Probability", "Deal", "Contract Format"];
+  const ATTR = ["Probability", "Deal", "Contract Format", "Start Date"];
+  const startCol = 3; // Start Date: its own column group (collapsible) next to Contract Format
   const annoCols = extras?.annotationCols ?? [];
   const width = ATTR.length + periods.length + annoCols.length;
   const blanks = () => Array(width - 1).fill("");
@@ -408,7 +425,7 @@ export async function renderPartnerClientView(
       clientRows.push(grid.length - 1);
       for (const d of byPartner.get(p)!.get(c)!.sort((x, y) => y.probability - x.probability || x.dealTitle.localeCompare(y.dealTitle))) {
         const bp = dealByPeriod(d, periods, periodOf);
-        grid.push([d.probability, HYPERLINK(d.dealUrl, d.dealTitle), d.contractType, ...periods.map((pp) => Math.round(bp.get(pp) ?? 0)), ...annoFor(d)]);
+        grid.push([d.probability, HYPERLINK(d.dealUrl, d.dealTitle), d.contractType, (d.startDate && isoToSerial(d.startDate)) ?? "", ...periods.map((pp) => Math.round(bp.get(pp) ?? 0)), ...annoFor(d)]);
       }
     }
     if (grid.length > contentStart) groups.push({ start: contentStart, end: grid.length });
@@ -422,9 +439,14 @@ export async function renderPartnerClientView(
 
   await writeOutline(token, spreadsheetId, target, grid, {
     width,
-    frozenCols: 3,
+    frozenCols: ATTR.length,
     firstPeriodCol: ATTR.length,
     percentCol: 0,
+    colGroups: [{ start: startCol, end: startCol + 1, collapsed: false }],
+    greyFromCol: 2, // Contract Format + Start Date
+    dateCols: [startCol],
+    // Same start-date highlight as Pipeline; deals are mixed here, so skip signed ones via Probability (col A).
+    extraRules: startDateRules({ sheetId: target.sheetId, startRowIndex: 1, endRowIndex: grid.length, startColumnIndex: startCol, endColumnIndex: startCol + 1 }, "$A2<1"),
     blackRows: partnerRows,
     coloredRows: clientRows.map((r) => ({ row: r, bg: BLUE })), // Client Partner keeps light blue client rows
     groups,
@@ -456,7 +478,7 @@ export async function renderProbabilityView(
   const width = ATTR.length + periods.length;
   const P0 = ATTR.length; // first period column index
   const labelCol = 3; // Contract Format column — top/summary labels live here
-  const startCol = 4; // Start Date: its own collapsed column group, expandable next to Contract Format
+  const startCol = 4; // Start Date: its own column group (collapsible) next to Contract Format
   const blank = () => Array(width).fill("") as (string | number)[];
   const showSummary = !!cascadeTargets;
   const col = (i: number) => colA1(P0 + i);
@@ -671,13 +693,7 @@ export async function renderProbabilityView(
   // it wins). Covers every stage below 100% — signed deals are already won, so their start isn't a risk.
   const openStart = sumPos.get(100)?.wt ?? headerRow + 1; // 1-based last row of the 100% section → first open row (0-based)
   const startRange = { sheetId: target.sheetId, startRowIndex: openStart, endRowIndex: grid.length, startColumnIndex: startCol, endColumnIndex: startCol + 1 };
-  const e = `${colA1(startCol)}${openStart + 1}`;
-  const startRules = showSummary
-    ? ([[14, SOON_RED], [28, NOTE_ORANGE]] as const).map(([days, bg]) => ({
-        ranges: [startRange],
-        booleanRule: { condition: { type: "CUSTOM_FORMULA", values: [{ userEnteredValue: `=AND(ISDATE(${e}),${e}>=TODAY(),${e}<=TODAY()+${days})` }] }, format: { backgroundColor: bg } },
-      }))
-    : [];
+  const startRules = showSummary ? startDateRules(startRange) : [];
 
   await writeOutline(token, spreadsheetId, target, grid, {
     width,
@@ -686,7 +702,7 @@ export async function renderProbabilityView(
     blackRows: [],
     coloredRows,
     groups,
-    colGroups: [{ start: startCol, end: startCol + 1, collapsed: true }], // Start Date hidden by default
+    colGroups: [{ start: startCol, end: startCol + 1, collapsed: false }], // Start Date grouped, shown by default
     greyFromCol: labelCol, // Contract Format + Start Date
     dateCols: [startCol],
     extraRules: startRules,

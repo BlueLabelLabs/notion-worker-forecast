@@ -31,7 +31,7 @@ const ORPHAN_TAB_IDS = [
 ];
 
 /** Hand-tuned column widths (px), read from the user's tabs. attr = per attribute column, period = uniform. */
-const CLIENT_W = { attr: [82, 400, 160], period: 86 };
+const CLIENT_W = { attr: [82, 400, 160, 119], period: 86 };
 const PIPELINE_W = { attr: [100, 134, 400, 160, 119], period: 92 };
 const WEIGHTED_MONTHLY_W = { attr: [82, 400, 160], period: 87 };
 const VARIABLE_NOTE = "This view uses different stage probabilities for new logos vs expansions. More information.";
