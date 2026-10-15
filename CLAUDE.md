@@ -99,7 +99,8 @@ expanded. Open-stage start dates are highlighted red within 14 days and orange
 within 28.
 
 Client Partner has the same Start Date column (D, after Contract Format): grouped,
-expanded, and highlighted the same way, skipping signed deals via Probability (col A).
+expanded, and highlighted the same way, skipping signed deals via Probability (col A). Client Partner is
+top-aligned throughout.
 
 ## Notion embed
 

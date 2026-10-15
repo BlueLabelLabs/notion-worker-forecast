@@ -151,6 +151,7 @@ async function writeOutline(
     greyFromCol?: number; // first column of the grey-text attribute block on deal rows (default: last attribute col)
     dateCols?: number[]; // column indices formatted as centred M/d/yyyy dates below the header
     extraRules?: unknown[]; // additional conditional-format rules (Sheets API ConditionalFormatRule), after the defaults
+    verticalAlign?: "TOP" | "MIDDLE" | "BOTTOM"; // whole-sheet vertical alignment (Sheets default: bottom)
     attrWidths: number[]; // pixel width per attribute column (0..firstPeriodCol-1)
     periodWidth: number; // pixel width for every period column
     headerRowIndex?: number; // 0-based grid row of the header (default 0); rows above it are summary/top rows
@@ -194,6 +195,10 @@ async function writeOutline(
       fields: "userEnteredFormat",
     },
   });
+  if (opts.verticalAlign)
+    reqs.push({
+      repeatCell: { range: { sheetId }, cell: { userEnteredFormat: { verticalAlignment: opts.verticalAlign } }, fields: "userEnteredFormat.verticalAlignment" },
+    });
   reqs.push({
     updateSheetProperties: {
       properties: { sheetId, gridProperties: { frozenRowCount: opts.frozenRows ?? hr + 1, frozenColumnCount: opts.frozenCols } },
@@ -445,6 +450,7 @@ export async function renderPartnerClientView(
     colGroups: [{ start: startCol, end: startCol + 1, collapsed: false }],
     greyFromCol: 2, // Contract Format + Start Date
     dateCols: [startCol],
+    verticalAlign: "TOP", // wrapped notes make rows tall; top-align so every cell reads from the row's top
     // Same start-date highlight as Pipeline; deals are mixed here, so skip signed ones via Probability (col A).
     extraRules: startDateRules({ sheetId: target.sheetId, startRowIndex: 1, endRowIndex: grid.length, startColumnIndex: startCol, endColumnIndex: startCol + 1 }, "$A2<1"),
     blackRows: partnerRows,
