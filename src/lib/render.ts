@@ -80,7 +80,8 @@ function colA1(i: number): string {
 
 const BLUE = { red: 0.8117647, green: 0.8862745, blue: 0.9529412 };
 const CLIENT_BG = { red: 0.8509804, green: 0.8235294, blue: 0.9137255 }; // client rows (purple)
-const NOTE_ORANGE = { red: 0.9764706, green: 0.79607844, blue: 0.6117647 }; // #F9CB9C — linked callout note row
+const NOTE_ORANGE = { red: 0.9764706, green: 0.79607844, blue: 0.6117647 }; // #F9CB9C — linked callout note row; Pipeline start date ≤28d
+const SOON_RED = { red: 0.91764706, green: 0.6, blue: 0.6 }; // #EA9999 — Pipeline start date ≤14d
 const GREEN = { red: 0.85, green: 0.92, blue: 0.83 };
 const GRAY = { red: 0.94, green: 0.94, blue: 0.94 };
 const BLACK = { red: 0, green: 0, blue: 0 };
@@ -149,6 +150,7 @@ async function writeOutline(
     colGroups?: { start: number; end: number; collapsed?: boolean }[]; // column groups (0-based, end-exclusive)
     greyFromCol?: number; // first column of the grey-text attribute block on deal rows (default: last attribute col)
     dateCols?: number[]; // column indices formatted as centred M/d/yyyy dates below the header
+    extraRules?: unknown[]; // additional conditional-format rules (Sheets API ConditionalFormatRule), after the defaults
     attrWidths: number[]; // pixel width per attribute column (0..firstPeriodCol-1)
     periodWidth: number; // pixel width for every period column
     headerRowIndex?: number; // 0-based grid row of the header (default 0); rows above it are summary/top rows
@@ -281,13 +283,14 @@ async function writeOutline(
     for (const c of opts.hideCols)
       reqs.push({ updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: c, endIndex: c + 1 }, properties: { hiddenByUser: true }, fields: "hiddenByUser" } });
   }
-  // Column groups, then collapse any flagged row/column groups. Runs after the unhide resets above,
-  // so a collapsed group's rows/columns end up hidden (expandable from the group's +/- control).
+  // Column groups, then set the collapse state of any group that specifies one. Sheets otherwise keeps a
+  // range's old collapsed state across the delete/re-add above, so explicit false forces it open. Runs after
+  // the unhide resets, so a collapsed group's rows/columns end up hidden (expandable from its +/- control).
   for (const g of opts.colGroups ?? []) reqs.push({ addDimensionGroup: { range: { sheetId, dimension: "COLUMNS", startIndex: g.start, endIndex: g.end } } });
   for (const [dim, gs] of [["ROWS", opts.groups], ["COLUMNS", opts.colGroups ?? []]] as const)
     for (const g of gs)
-      if (g.collapsed)
-        reqs.push({ updateDimensionGroup: { dimensionGroup: { range: { sheetId, dimension: dim, startIndex: g.start, endIndex: g.end }, depth: 1, collapsed: true }, fields: "collapsed" } });
+      if (g.collapsed != null)
+        reqs.push({ updateDimensionGroup: { dimensionGroup: { range: { sheetId, dimension: dim, startIndex: g.start, endIndex: g.end }, depth: 1, collapsed: g.collapsed }, fields: "collapsed" } });
   // Conditional format: muted grey text on $0 deal cells (blank group-row cells aren't numbers, so untouched).
   reqs.push({
     addConditionalFormatRule: {
@@ -308,6 +311,7 @@ async function writeOutline(
       },
     },
   });
+  (opts.extraRules ?? []).forEach((rule, i) => reqs.push({ addConditionalFormatRule: { index: 2 + i, rule } }));
   // Cell merges: clear any merges in the written region, then apply the requested ones (top-left format wins).
   if (opts.merges?.length) {
     reqs.push({ unmergeCells: { range: { sheetId, startRowIndex: 0, endRowIndex: grid.length, startColumnIndex: 0, endColumnIndex: opts.width } } });
@@ -613,7 +617,7 @@ export async function renderProbabilityView(
         grid.push([d.clientPartner, d.client, HYPERLINK(d.dealUrl, d.dealTitle), d.contractType, (d.startDate && isoToSerial(d.startDate)) ?? "", ...periods.map((pp) => Math.round(bp.get(pp) ?? 0))]);
       }
       // Deals are a collapsible group; the stage's summary stays visible below. The 100% (signed) group
-      // starts collapsed so the open pipeline is what you see first.
+      // starts collapsed so the open pipeline is what you see first; every other stage starts expanded.
       groups.push({ start: contentStart, end: grid.length, collapsed: s === 100 });
       greyRanges.push({ start: contentStart, end: grid.length });
     }
@@ -663,6 +667,18 @@ export async function renderProbabilityView(
     }
   }
 
+  // Open-pipeline start dates coming up soon: red within 14 days, orange within 28 (red listed first, so
+  // it wins). Covers every stage below 100% — signed deals are already won, so their start isn't a risk.
+  const openStart = sumPos.get(100)?.wt ?? headerRow + 1; // 1-based last row of the 100% section → first open row (0-based)
+  const startRange = { sheetId: target.sheetId, startRowIndex: openStart, endRowIndex: grid.length, startColumnIndex: startCol, endColumnIndex: startCol + 1 };
+  const e = `${colA1(startCol)}${openStart + 1}`;
+  const startRules = showSummary
+    ? ([[14, SOON_RED], [28, NOTE_ORANGE]] as const).map(([days, bg]) => ({
+        ranges: [startRange],
+        booleanRule: { condition: { type: "CUSTOM_FORMULA", values: [{ userEnteredValue: `=AND(ISDATE(${e}),${e}>=TODAY(),${e}<=TODAY()+${days})` }] }, format: { backgroundColor: bg } },
+      }))
+    : [];
+
   await writeOutline(token, spreadsheetId, target, grid, {
     width,
     frozenCols: P0,
@@ -673,6 +689,7 @@ export async function renderProbabilityView(
     colGroups: [{ start: startCol, end: startCol + 1, collapsed: true }], // Start Date hidden by default
     greyFromCol: labelCol, // Contract Format + Start Date
     dateCols: [startCol],
+    extraRules: startRules,
     attrWidths: widths.attr,
     periodWidth: widths.period,
     headerRowIndex,
