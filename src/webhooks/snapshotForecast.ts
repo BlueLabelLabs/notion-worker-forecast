@@ -7,8 +7,8 @@
  */
 
 import { worker, googleAuth } from "../worker.js";
-import { readSegments } from "../lib/notionForecast.js";
-import { aggregateDeals } from "../lib/render.js";
+import { readSegments, readOpenPlaceholderDeals } from "../lib/notionForecast.js";
+import { aggregateDeals, applyPursuitLeadFallback } from "../lib/render.js";
 import { SNAPSHOT_HEADERS, buildSnapshotRows, snapshotDate } from "../lib/snapshot.js";
 import { ensureTab, getValuesUnformatted, clearValues, writeValues } from "../lib/sheets.js";
 import { withSheetsAuthRetry } from "../lib/renderGuard.js";
@@ -27,6 +27,8 @@ worker.webhook("snapshotForecast", {
       try {
         if (!sheetId) throw new Error("FORECAST_SHEET_ID not set");
         const deals = aggregateDeals(await readSegments(notion));
+        // Same owner rule as the Sheet views: Client Partner, else the deal's Pursuit Lead.
+        applyPursuitLeadFallback(deals, (await readOpenPlaceholderDeals(notion)).pursuitLeads);
         const key = snapshotDate();
         const fresh = buildSnapshotRows(deals, key);
 

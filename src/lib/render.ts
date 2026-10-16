@@ -54,6 +54,15 @@ export function aggregateDeals(segments: Segment[]): DealAgg[] {
   return [...byDeal.values()].filter((d) => [...d.byMonth.values()].some((v) => v > 0));
 }
 
+/**
+ * Owner shown on the Client Partner and Pipeline tabs: the deal's Client Partner (from its client
+ * account) and, when that is blank — typically a New Opportunity with no account yet — the deal's
+ * Pursuit Lead. Mutates in place; deals with neither stay blank ("(no partner)").
+ */
+export function applyPursuitLeadFallback(deals: DealAgg[], pursuitLeads: Map<string, string>): void {
+  for (const d of deals) if (!d.clientPartner.trim()) d.clientPartner = pursuitLeads.get(d.dealId) ?? d.clientPartner;
+}
+
 function dealByPeriod(
   d: DealAgg,
   periods: string[],

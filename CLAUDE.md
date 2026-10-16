@@ -91,6 +91,12 @@ merges span rows 1–12; deals start at row 13. `CLOSED_ROW=4`, `WV_ROW=5`,
 `TARGET_ROW=6`. Gap to Target (row 8) is Closed − Target. The empty 0% cascade
 tier is suppressed.
 
+**Owner ("Client Partner") on Client Partner, Pipeline, and Snapshots** is the deal's
+Client Partner (from its client account); when that is blank — typically a New
+Opportunity with no account yet — it falls back to the deal's **Pursuit Lead**
+(first person listed; `applyPursuitLeadFallback`). Deals with neither stay under
+"(no partner)".
+
 Pipeline columns A–E are attributes: Client Partner, Client, Deal, Contract Format,
 Start Date (the deal's Notion Start Date, else its earliest schedule start). Start
 Date is its own column group, rendered expanded. The 100% (signed) deal group

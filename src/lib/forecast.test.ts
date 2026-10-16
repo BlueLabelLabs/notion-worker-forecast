@@ -3,6 +3,7 @@
  */
 
 import assert from "node:assert/strict";
+import { applyPursuitLeadFallback, type DealAgg } from "./render.js";
 import { spreadSegment, computeFacts, factsToGrid, FACT_HEADERS, focusQuarter, nextQuarter, type Segment } from "./forecast.js";
 
 const base: Omit<Segment, "start" | "end" | "weeklyRevenue" | "stageProbability"> = {
@@ -91,5 +92,11 @@ assert.equal(focusQuarter(new Date("2026-09-02T12:00:00Z")), "2026.Q4", "28 days
 assert.equal(focusQuarter(new Date("2026-09-30T12:00:00Z")), "2026.Q4", "last day → next");
 assert.equal(focusQuarter(new Date("2026-12-20T12:00:00Z")), "2027.Q1", "late Q4 → next year's Q1");
 assert.equal(focusQuarter(new Date("2026-10-01T12:00:00Z")), "2026.Q4", "new quarter → current");
+
+// Owner fallback: Client Partner wins; a blank one takes the deal's Pursuit Lead; neither stays blank.
+const mk = (dealId: string, clientPartner: string) => ({ dealId, clientPartner }) as DealAgg;
+const owners = [mk("a", "Danny"), mk("b", ""), mk("c", " ")];
+applyPursuitLeadFallback(owners, new Map([["a", "Lu"], ["b", "Lu"]]));
+assert.deepEqual(owners.map((d) => d.clientPartner), ["Danny", "Lu", " "], "Client Partner first, Pursuit Lead fallback");
 
 console.log("✓ all forecast.test assertions passed");

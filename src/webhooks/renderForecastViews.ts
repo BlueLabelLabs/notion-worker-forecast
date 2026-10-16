@@ -10,7 +10,7 @@
 
 import { worker, googleAuth } from "../worker.js";
 import { readSegments, readTargets, readOpenPlaceholderDeals } from "../lib/notionForecast.js";
-import { aggregateDeals, renderPartnerClientView, renderProbabilityView, renderWeightedPipeline, variableWeightDeals, ACTIONS_COL, LAST_WEEK_COL, REVENUE_COL, type Target } from "../lib/render.js";
+import { aggregateDeals, applyPursuitLeadFallback, renderPartnerClientView, renderProbabilityView, renderWeightedPipeline, variableWeightDeals, ACTIONS_COL, LAST_WEEK_COL, REVENUE_COL, type Target } from "../lib/render.js";
 import { quartersRange, monthsFrom, monthToQuarter } from "../lib/forecast.js";
 import { deleteTabs, deleteTabsById, getSheetMeta, ensureTab } from "../lib/sheets.js";
 import { withSheetsAuthRetry, acquireRenderLock, releaseRenderLock } from "../lib/renderGuard.js";
@@ -92,7 +92,9 @@ worker.webhook("renderForecastViews", {
         // Open-stage deals with no revenue schedule yet — shown at $0 in the Pipeline and Client Partner
         // views so early pipeline is visible before it's scheduled. Kept out of Weighted Monthly.
         const have = new Set(deals.map((d) => d.dealId));
-        const { placeholders: open, startDates } = await readOpenPlaceholderDeals(notion);
+        const { placeholders: open, startDates, pursuitLeads } = await readOpenPlaceholderDeals(notion);
+        // Owner: Client Partner, else the deal's Pursuit Lead (New Opportunities often have no account yet).
+        applyPursuitLeadFallback(deals, pursuitLeads);
         const placeholders = open.filter((d) => !have.has(d.dealId));
         // Pipeline "Start Date": the deal's own Notion Start Date; aggregateDeals pre-fills the earliest
         // schedule start as a fallback for deals that leave it blank.

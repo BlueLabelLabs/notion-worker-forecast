@@ -8,7 +8,7 @@
 import type { Client } from "@notionhq/client";
 import { notionPropertyToDate, notionPropertyToString } from "./notionProps.js";
 import type { Segment } from "./forecast.js";
-import type { DealAgg } from "./render.js";
+import { applyPursuitLeadFallback, type DealAgg } from "./render.js";
 
 /** Deal Revenue Schedules data source (collection) id. */
 export const DEAL_REVENUE_SCHEDULES_DS = "37bf6504-1608-4bf0-af10-c6e5123cc618";
@@ -138,11 +138,15 @@ export const DEALS_DS = "ee89a6dd-be27-4bc5-bc5f-86b6ef40be2b";
  * still surface in the Pipeline view (in their probability tier, at $0 across every period). "Open"
  * = 0 < Stage Probability < 1, which excludes Won (1.0) and dead/parked stages (0), and is robust to
  * stage renames. Deals that already have schedules are skipped — they arrive via readSegments with
- * real, time-phased revenue. The same pass also returns every deal's Notion "Start Date" (by deal id).
+ * real, time-phased revenue. The same pass also returns every deal's Notion "Start Date" and its first
+ * "Pursuit Lead" name (both by deal id). Placeholders with no Client Partner fall back to that Pursuit Lead.
  */
-export async function readOpenPlaceholderDeals(notion: Client): Promise<{ placeholders: DealAgg[]; startDates: Map<string, string> }> {
+export async function readOpenPlaceholderDeals(
+  notion: Client,
+): Promise<{ placeholders: DealAgg[]; startDates: Map<string, string>; pursuitLeads: Map<string, string> }> {
   const out: DealAgg[] = [];
   const startDates = new Map<string, string>();
+  const leadRefs = new Map<string, { id: string; name: string }>(); // deal id → first Pursuit Lead
   let cursor: string | undefined;
   do {
     const res = await notion.dataSources.query({ data_source_id: DEALS_DS, start_cursor: cursor, page_size: 100 });
@@ -152,6 +156,8 @@ export async function readOpenPlaceholderDeals(notion: Client): Promise<{ placeh
       if (!id || !props) continue;
       const start = notionPropertyToDate(props["Start Date"]);
       if (start) startDates.set(id, start.slice(0, 10));
+      const lead = firstPerson(props["Pursuit Lead"]);
+      if (lead) leadRefs.set(id, lead);
       const prob = numberOf(props["Stage Probability"]);
       if (!(prob > 0 && prob < 1)) continue; // open stages only — not Won (1.0), not dead/0%
       const sched = props["📆 Deal Revenue Schedule"] as { type?: string; relation?: unknown[] } | undefined;
@@ -171,7 +177,31 @@ export async function readOpenPlaceholderDeals(notion: Client): Promise<{ placeh
     }
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
   } while (cursor);
-  return { placeholders: out, startDates };
+
+  // Query results can omit a person's name; resolve those by id (once per user).
+  const names = new Map<string, string>();
+  for (const { id, name } of leadRefs.values()) if (name) names.set(id, name);
+  for (const { id } of leadRefs.values()) {
+    if (names.has(id)) continue;
+    try {
+      const u = (await notion.users.retrieve({ user_id: id })) as { name?: string | null };
+      names.set(id, (u.name ?? "").trim());
+    } catch (e) {
+      names.set(id, "");
+      console.warn(`[forecast] Pursuit Lead ${id} name unavailable:`, e instanceof Error ? e.message : e);
+    }
+  }
+  const pursuitLeads = new Map<string, string>();
+  for (const [dealId, { id }] of leadRefs) if (names.get(id)) pursuitLeads.set(dealId, names.get(id)!);
+  applyPursuitLeadFallback(out, pursuitLeads);
+  return { placeholders: out, startDates, pursuitLeads };
+}
+
+/** First person in a Notion people property: its id, and its name when the API includes it. */
+function firstPerson(prop: unknown): { id: string; name: string } | null {
+  const p = prop as { type?: string; people?: { id?: string; name?: string | null }[] } | undefined;
+  const u = p?.type === "people" ? p.people?.[0] : undefined;
+  return u?.id ? { id: u.id, name: (u.name ?? "").trim() } : null;
 }
 
 /** Query Deal Revenue Schedule rows → Segment[]. Non-archived only, unless includeArchived (for historical arcs). */
