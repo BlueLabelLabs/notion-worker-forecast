@@ -71,3 +71,30 @@ export function computeGlidepath(
   }
   return out;
 }
+
+/**
+ * End each series at today's live values: one more point built from the current deals (weighted =
+ * Σ probability-weighted $ in the quarter; closed = Σ $ of signed deals), so the charts don't stop at
+ * the last weekly snapshot. Replaces a snapshot point taken earlier today rather than duplicating it.
+ */
+export function appendLivePoints(
+  series: GlideSeries[],
+  deals: { probability: number; byMonth: Map<string, number>; byMonthW: Map<string, number> }[],
+  quarterOf: (month: string) => string,
+  now: Date = new Date(),
+): void {
+  const mmdd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now).slice(5);
+  for (const s of series) {
+    const end = quarterEnd(s.quarter);
+    if (!s.target || !end || now > end) continue;
+    let weighted = 0;
+    let committed = 0;
+    for (const d of deals) {
+      for (const [m, v] of d.byMonthW) if (quarterOf(m) === s.quarter) weighted += v;
+      if (d.probability >= 0.999) for (const [m, v] of d.byMonth) if (quarterOf(m) === s.quarter) committed += v;
+    }
+    const wte = Math.round(((end.getTime() - now.getTime()) / (7 * 864e5)) * 10) / 10;
+    if (s.points.at(-1)?.date === mmdd) s.points.pop();
+    s.points.push({ wte, cov: weighted / s.target, closed: committed / s.target, date: `${mmdd} (live)` });
+  }
+}

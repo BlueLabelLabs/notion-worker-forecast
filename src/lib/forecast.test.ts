@@ -4,6 +4,7 @@
 
 import assert from "node:assert/strict";
 import { applyPursuitLeadFallback, type DealAgg } from "./render.js";
+import { appendLivePoints, type GlideSeries } from "./glidepath.js";
 import { spreadSegment, computeFacts, factsToGrid, FACT_HEADERS, focusQuarter, nextQuarter, type Segment } from "./forecast.js";
 
 const base: Omit<Segment, "start" | "end" | "weeklyRevenue" | "stageProbability"> = {
@@ -98,5 +99,19 @@ const mk = (dealId: string, clientPartner: string) => ({ dealId, clientPartner }
 const owners = [mk("a", "Danny"), mk("b", ""), mk("c", " ")];
 applyPursuitLeadFallback(owners, new Map([["a", "Lu"], ["b", "Lu"]]));
 assert.deepEqual(owners.map((d) => d.clientPartner), ["Danny", "Lu", " "], "Client Partner first, Pursuit Lead fallback");
+
+// Glidepath live point: appended after the snapshots from today's deals; replaces a same-day snapshot.
+const q4 = (m: string) => (m >= "2026-10" && m <= "2026-12" ? "2026.Q4" : "other");
+const liveDeals = [
+  { probability: 1, byMonth: new Map([["2026-11", 600]]), byMonthW: new Map([["2026-11", 600]]) },
+  { probability: 0.5, byMonth: new Map([["2026-12", 400]]), byMonthW: new Map([["2026-12", 200]]) },
+];
+const series: GlideSeries[] = [{ quarter: "2026.Q4", target: 1000, points: [{ wte: 10, cov: 0.5, closed: 0.3, date: "10-20" }] }];
+appendLivePoints(series, liveDeals, q4, new Date("2026-10-26T16:00:00Z"));
+assert.equal(series[0]!.points.length, 2, "live point appended");
+assert.deepEqual([series[0]!.points[1]!.cov, series[0]!.points[1]!.closed, series[0]!.points[1]!.date], [0.8, 0.6, "10-26 (live)"]);
+series[0]!.points = [{ wte: 9.6, cov: 0.7, closed: 0.6, date: "10-26" }];
+appendLivePoints(series, liveDeals, q4, new Date("2026-10-26T16:00:00Z"));
+assert.equal(series[0]!.points.length, 1, "same-day snapshot replaced, not duplicated");
 
 console.log("✓ all forecast.test assertions passed");

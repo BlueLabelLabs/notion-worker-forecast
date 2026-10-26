@@ -208,7 +208,6 @@ ${BRAND_FONTS}
   var GLIDE = ${JSON.stringify(GLIDE)};
   var NS="http://www.w3.org/2000/svg";
   function el(tag,a){var e=document.createElementNS(NS,tag);for(var k in a)e.setAttribute(k,a[k]);return e;}
-  function usd(n){return "$"+Math.round(n).toLocaleString("en-US");}
   function usdS(n){var a=Math.abs(n);if(a>=1e6)return "$"+(n/1e6).toFixed(a%1e6?(a>=1e7?1:2):0).replace(/\\.?0+$/,"")+"M";if(a>=1e3)return "$"+Math.round(n/1e3)+"K";return "$"+Math.round(n);}
   var TT=document.getElementById("tt");
   function ttMove(ev){var pad=14,w=TT.offsetWidth,h=TT.offsetHeight,x=ev.clientX+pad,y=ev.clientY+pad;if(x+w>innerWidth)x=ev.clientX-w-pad;if(y+h>innerHeight)y=ev.clientY-h-pad;TT.style.left=x+"px";TT.style.top=y+"px";}
@@ -263,7 +262,7 @@ ${BRAND_FONTS}
       var pl=el("text",{x:cx,y:y(p.tot)-8,"text-anchor":"middle",fill:p.gap>=0?"var(--good-ink)":"var(--crit-ink)","font-size":11.5,"font-family":'"NB Mono",monospace'});pl.textContent=(p.gap<0?"−":"+")+usdS(Math.abs(p.gap));svg.appendChild(pl);
       var lb=el("text",{x:cx,y:H-PB+18,"text-anchor":"middle",fill:i>=nowRel&&nowRel>=0?"var(--ink-2)":"var(--ink-3)","font-size":10,"font-family":'"NB Mono",monospace'});lb.textContent=p.q;svg.appendChild(lb);
       var hit=el("rect",{x:PL+band*i,y:PT,width:band,height:ph,fill:"transparent",tabindex:0,role:"button","aria-label":p.q+" at "+Math.round(p.pc)+"% of target"});hit.style.cursor="crosshair";
-      var html='<div class="tt-h">'+p.q+'</div>'+row(null,"<b>Target</b>","<b>"+usd(p.t)+"</b>")+row(cols[0],"Signed",usd(p.s))+(p.cw>0?row(cols[1],"Expansion Forecast",usd(p.cw)):"")+(p.nw>0?row(cols[2],"Net-new",usd(p.nw)):"")+row(null,"Weighted total",usd(p.tot))+row(null,p.gap<0?"<b>Gap</b>":"<b>Over plan</b>","<b>"+usd(Math.abs(p.gap))+"</b>")+row(null,"% of plan",Math.round(p.pc)+"%");
+      var html='<div class="tt-h">'+p.q+'</div>'+row(null,"<b>Target</b>","<b>"+usdS(p.t)+"</b>")+row(cols[0],"Signed",usdS(p.s))+(p.cw>0?row(cols[1],"Expansion Forecast",usdS(p.cw)):"")+(p.nw>0?row(cols[2],"Net-new",usdS(p.nw)):"")+row(null,"Weighted total",usdS(p.tot))+row(null,p.gap<0?"<b>Gap</b>":"<b>Over plan</b>","<b>"+usdS(Math.abs(p.gap))+"</b>")+row(null,"% of plan",Math.round(p.pc)+"%");
       hit.addEventListener("mouseenter",function(e){hl.setAttribute("x",PL+band*i);hl.setAttribute("opacity",1);ttShow(e,html);});
       hit.addEventListener("mousemove",ttMove);
       hit.addEventListener("mouseleave",function(){hl.setAttribute("opacity",0);ttHide();});

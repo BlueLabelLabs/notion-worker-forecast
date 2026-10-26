@@ -11,7 +11,7 @@ import { worker, googleAuth } from "../worker.js";
 import { readSegments, readTargets, readStageCycles } from "../lib/notionForecast.js";
 import { aggregateDeals } from "../lib/render.js";
 import { focusQuarter, monthToQuarter, quartersRange } from "../lib/forecast.js";
-import { computeGlidepath, type GlideSeries } from "../lib/glidepath.js";
+import { appendLivePoints, computeGlidepath, type GlideSeries } from "../lib/glidepath.js";
 import { buildTemplates, buildBaseline } from "../lib/simulator.js";
 import { buildFunnelWindows } from "../lib/coverageFunnel.js";
 import { renderFunnelHtml } from "../lib/funnelHtml.js";
@@ -64,6 +64,7 @@ worker.webhook("renderNotionFunnel", {
             const forQ = ci >= 0 ? quarters.slice(ci, ci + 2) : [];
             const snapRows = await getValuesUnformatted(await googleAuth.accessToken(), sheetId, "Snapshots!A2:U100000");
             glide = computeGlidepath(snapRows, targets, quarters, forQ);
+            appendLivePoints(glide, deals, monthToQuarter, now); // latest point = today's live pipeline
           }
         } catch (e) {
           console.warn("[forecast] glidepath unavailable:", e instanceof Error ? e.message : e);
