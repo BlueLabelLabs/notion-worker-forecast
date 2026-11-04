@@ -80,12 +80,12 @@ assert.equal(computePipelineDeltas([snap("2026-11-03", "a", "A", 1, {})], [], FO
   assert.deepEqual(byClient.get("Win Co")!.dq.map(Math.round), [10000, 0]);
   assert.deepEqual(byClient.get("Lost Co")!.dq.map(Math.round), [-12000, -2000]);
   assert.deepEqual(byClient.get("new title")!.dq.map(Math.round), [0, 3000]);
-  assert.match(byClient.get("Up Co")!.notes[0]!, /40% → 60%/);
-  assert.match(byClient.get("new title")!.notes[0]!, /new at 10%/);
+  assert.match(byClient.get("Up Co")!.notes[0]!.text, /40% → 60%/);
+  assert.match(byClient.get("new title")!.notes[0]!.text, /new at 10%/);
   // Sorted by the first quarter's absolute change.
   assert.deepEqual(r.rows.map((x) => x.client).slice(0, 3), ["Up Co", "Lost Co", "Win Co"]);
 
-  assert.deepEqual(r.shifts, [{ title: "won title", client: "Win Co", days: 16 }]);
+  assert.deepEqual(r.shifts, [{ title: "won title", url: "https://www.notion.so/won", client: "Win Co", days: 16 }]);
   assert.equal(r.wins.length, 1);
   assert.equal(r.wins[0]!.rev90, 50000); // Dec fully inside the 90 days from Dec 1
   assert.deepEqual(
@@ -120,11 +120,11 @@ const toQuarters = (months: Record<string, number>) => {
   assert.ok(Math.abs(days - 14) <= 2, `inferred ${days}`);
   const r = computePipelineDeltas([snap("2026-11-02", "pm", "Plante Moran", 0.2, prev)], [live], FOCUS, new Map(), "2026-11-09")!;
   assert.equal(r.shifts.length, 1);
-  assert.match(r.rows[0]!.notes[0]!, /pushed out → 2 weeks/);
+  assert.match(r.rows[0]!.notes[0]!.text, /pushed out → 2 weeks/);
   // Pulled earlier reads the other way.
   const early = deal("pm", "Plante Moran", 0.2, daily("2026-11-17", 90));
   const r2 = computePipelineDeltas([snap("2026-11-02", "pm", "Plante Moran", 0.2, prev)], [early], FOCUS, new Map(), "2026-11-09")!;
-  assert.match(r2.rows[0]!.notes[0]!, /pulled up ← 2 weeks/);
+  assert.match(r2.rows[0]!.notes[0]!.text, /pulled up ← 2 weeks/);
   // A resize (total changed) is not called a shift.
   assert.equal(inferShiftDays(deal("x", "X", 1, daily("2026-12-15", 120)).byMonth, new Map(Object.entries(prev)), QS), null);
 }

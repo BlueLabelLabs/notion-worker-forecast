@@ -219,6 +219,10 @@ ${BRAND_FONTS}
   .dshift .ar{font-family:var(--mono);white-space:nowrap}
   .dshift .ar.early{color:var(--good-ink)} .dshift .ar.late{color:var(--warn-ink)}
   .dshift .cl{color:var(--ink-3);font-size:11.5px}
+  .mention{color:inherit;text-decoration:none;white-space:normal}
+  .mention svg{width:13px;height:13px;vertical-align:-2px;margin-right:3px;color:var(--ink-3)}
+  .mention span{border-bottom:1px solid var(--hair)}
+  .mention:hover span{border-bottom-color:var(--ink-3)}
   .dempty{font-size:12px;color:var(--ink-3);padding:4px 0}
   @media(max-width:560px){.kpis{grid-template-columns:1fr}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -340,7 +344,7 @@ ${BRAND_FONTS}
       R.forEach(function(r){
         var tr=document.createElement("tr");tr.appendChild(td(r.client));
         r.dq.forEach(function(v){tr.appendChild(td(signed(v),"num "+(Math.abs(v)<500?"flat":v>0?"up":"down")));});
-        var why=td("","why");r.notes.forEach(function(n){var s=document.createElement("span");s.className="sub";s.textContent=n;why.appendChild(s);});tr.appendChild(why);
+        var why=td("","why");r.notes.forEach(function(n){var s=document.createElement("span");s.className="sub";s.appendChild(mention(n.title,n.url));s.appendChild(document.createTextNode(" "+n.text));why.appendChild(s);});tr.appendChild(why);
         body.appendChild(tr);
       });
     }
@@ -349,11 +353,17 @@ ${BRAND_FONTS}
     });
     rows(0);
 
+    // Deal link styled like a Notion page mention: grey page glyph, then the title.
+    function mention(title,url){
+      var a=document.createElement("a");a.className="mention";a.href=url;a.target="_blank";a.rel="noopener";
+      a.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.2L12.5 4.8V14a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9 1.7V5h3.3M5.6 8h4.8M5.6 10.4h4.8M5.6 12.7h3" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>';
+      var t=document.createElement("span");t.textContent=title;a.appendChild(t);return a;
+    }
     var sh=document.getElementById("dshifts");
     if(!DELTAS.shifts.length) empty(sh,"No deals moved in time.");
     else DELTAS.shifts.forEach(function(s){
       var d=document.createElement("div");d.className="dshift";
-      var t=document.createElement("span");t.textContent=s.title;
+      var t=mention(s.title,s.url);
       var a=document.createElement("span");a.className="ar "+(s.days<0?"early":"late");a.textContent=(s.days<0?"← ":"→ ")+dur(s.days);
       var c=document.createElement("span");c.className="cl";c.textContent=s.client!==s.title?s.client:"";
       d.appendChild(t);d.appendChild(a);d.appendChild(c);sh.appendChild(d);
@@ -367,7 +377,7 @@ ${BRAND_FONTS}
       thead.appendChild(hr);t.appendChild(thead);
       var tb=document.createElement("tbody");list.forEach(function(x){var tr=document.createElement("tr");cells(x).forEach(function(c){tr.appendChild(c);});tb.appendChild(tr);});t.appendChild(tb);
     }
-    function clientCell(x){var c=td(x.client);if(x.title!==x.client){var s=document.createElement("span");s.className="sub";s.textContent=x.title;c.appendChild(s);}return c;}
+    function clientCell(x){var c=td(x.client),s=document.createElement("span");s.className="sub";s.appendChild(mention(x.title,x.url));c.appendChild(s);return c;}
     grid("dwins",[["Client"],["Start Date"],["90d Revenue","num"],["Contract Format"]],DELTAS.wins,function(w){return [clientCell(w),td(mdy(w.start)),td(w.rev90>=1e6?"$"+(w.rev90/1e6).toFixed(1)+"M":"$"+Math.round(w.rev90/1e3)+"K","num"),td(w.contract||"—")];},"No new wins since the last snapshot.");
     grid("dlosses",[["Client"],["Reason"]],DELTAS.losses,function(l){return [clientCell(l),td(l.reason||"—")];},"No losses since the last snapshot.");
   })();

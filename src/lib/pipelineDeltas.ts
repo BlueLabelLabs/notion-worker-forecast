@@ -15,10 +15,11 @@ import type { DealAgg } from "./render.js";
 import { SNAP_COL } from "./snapshot.js";
 import { quartersRange, monthToQuarter } from "./forecast.js";
 
-export type DeltaRow = { client: string; dq: number[]; notes: string[] };
-export type Shift = { title: string; client: string; days: number }; // days > 0 = later, < 0 = earlier
-export type Win = { title: string; client: string; start: string; rev90: number; contract: string };
-export type Loss = { title: string; client: string; reason: string };
+export type DealNote = { title: string; url: string; text: string };
+export type DeltaRow = { client: string; dq: number[]; notes: DealNote[] };
+export type Shift = { title: string; url: string; client: string; days: number }; // days > 0 = later, < 0 = earlier
+export type Win = { title: string; url: string; client: string; start: string; rev90: number; contract: string };
+export type Loss = { title: string; url: string; client: string; reason: string };
 export type PipelineDeltas = {
   since: string; // snapshot date compared against, "YYYY-MM-DD"
   quarters: string[]; // focus quarters, in column order
@@ -42,11 +43,6 @@ const num = (x: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 const pct = (p: number) => `${Math.round(p * 100)}%`;
-const money = (n: number) => {
-  const a = Math.abs(n);
-  const s = a >= 1e6 ? `$${(a / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${Math.round(a / 1e3)}K` : `$${Math.round(a)}`;
-  return `${n < 0 ? "−" : "+"}${s}`;
-};
 /** "4 days", "2 weeks", "3 months" — matches the Shifts list in the embed. */
 export const duration = (days: number) => {
   const a = Math.abs(days);
@@ -162,6 +158,7 @@ export function computePipelineDeltas(
     const p = prev.get(id);
     const l = live.get(id);
     const title = l?.dealTitle || p?.title || "(untitled deal)";
+    const url = l?.dealUrl || `https://www.notion.so/${id.replace(/-/g, "")}`; // deals gone from the forecast still resolve by id
     const client = l?.client || p?.client || title; // unaccounted New Opportunities stand as their own row
     const lProb = l?.probability ?? 0;
     const pProb = p?.prob ?? 0;
@@ -187,24 +184,25 @@ export function computePipelineDeltas(
         const to = gq.findIndex((v) => v >= MIN_MOVE);
         if (from >= 0 && to >= 0) parts.push(`revenue moved ${quarters[from]} → ${quarters[to]}`);
       }
-      if (Math.abs(dGross) >= MIN_MOVE) parts.push(`${money(dGross)} gross`);
+      // Amounts live in the quarter columns; the note only says why.
+      if (!parts.length && Math.abs(dGross) >= MIN_MOVE) parts.push(dGross > 0 ? "scope added" : "scope reduced");
     }
     if (dq.some((v) => Math.abs(v) >= MIN_MOVE)) {
       const row = byClient.get(client) ?? byClient.set(client, { client, dq: quarters.map(() => 0), notes: [] }).get(client)!;
       dq.forEach((v, i) => (row.dq[i]! += v));
-      row.notes.push(`${title}: ${parts.join(", ") || "schedule revised"}`);
+      row.notes.push({ title, url, text: parts.join(", ") || "schedule revised" });
     }
 
-    if (l && p && lProb > 0 && Math.abs(shiftDays) >= MIN_SHIFT_DAYS) shifts.push({ title, client, days: shiftDays });
+    if (l && p && lProb > 0 && Math.abs(shiftDays) >= MIN_SHIFT_DAYS) shifts.push({ title, url, client, days: shiftDays });
     // A deal new at 100% only counts if it earns revenue from the snapshot on: a backfilled schedule
     // for past work (e.g. an old change request logged late) is bookkeeping, not a win.
     const sinceMonth = since.slice(0, 7);
     const isWin = l && lProb >= 0.999 && (p ? pProb < 0.999 : [...l.byMonth].some(([m, v]) => m >= sinceMonth && v > 0));
     if (l && isWin) {
-      wins.push({ title, client, start: l.startDate ?? "", rev90: Math.round(revenue90(l)), contract: l.contractType });
+      wins.push({ title, url, client, start: l.startDate ?? "", rev90: Math.round(revenue90(l)), contract: l.contractType });
     }
     if (p && pProb > 0 && lProb === 0) {
-      losses.push({ title, client, reason: l ? lossReasons.get(id) || "Lost" : "Removed from forecast" });
+      losses.push({ title, url, client, reason: l ? lossReasons.get(id) || "Lost" : "Removed from forecast" });
     }
   }
 
