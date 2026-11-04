@@ -113,7 +113,7 @@ top-aligned throughout.
 ## Notion embed
 
 One draggable embed, `forecast_vs_plan.html`: Forecast vs Plan (KPI cards +
-glidepath + windowed bars + Pipeline changes) on top, then a tab bar holding
+glidepath, Pipeline changes, then windowed bars) on top, then a tab bar holding
 Coverage Funnel (default tab) and Gap Simulator (`renderStackedEmbed`'s `tabs`
 option; hidden panes stay in the document, toggled with `hidden`). Webhook `renderNotionFunnel`; libs `notionEmbed.ts`,
 `embedStack.ts`, `planHtml.ts`, `funnelHtml.ts` + `coverageFunnel.ts`,
@@ -137,13 +137,16 @@ Notion API v2026-03-11 constraints: embed PATCH rejects `embed.file_upload` and
 positional `after`; embeds expose only caption and url with **no settable
 height**; uploads are immutable.
 
-**Pipeline changes** (`pipelineDeltas.ts`, card under the bar chart): live vs the
+**Pipeline changes** (`pipelineDeltas.ts`, card between the KPI cards and the bar chart): live vs the
 latest snapshot at least 6 days old (ET; a rolling week, so Tuesday's fresh
 snapshot doesn't shrink the window to a day), all $ **weighted**. Net change per
 client in the two focus quarters with one note per moving deal, sorted by the
-selected quarter's biggest movers (quarter toggle); Shifts (start-date moves of
-≥3 days, from snapshot `start_date`; shows a placeholder until a snapshot has
-it); Wins (reached 100%: start, 90-day gross, contract format); Losses (dropped to
+selected quarter's biggest movers (quarter toggle); Shifts (timing moves of ≥3
+days: snapshot `start_date` vs live when both exist, else `inferShiftDays` fits how
+an unchanged total moved between quarters; notes read "pushed out → 2 weeks" /
+"pulled up ← 2 weeks"); Wins (reached 100%: start, 90-day gross, contract format;
+a deal new at 100% must earn revenue from the snapshot month on, so backfilled
+past schedules aren't wins); Losses (dropped to
 0% with the Deals' `ZD | Stage` + loss-reason multi-selects, or left the forecast).
 Loss "detailed reason" (Client Notes, Growth Rally transcripts) is not built yet.
 

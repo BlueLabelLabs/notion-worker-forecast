@@ -227,6 +227,7 @@ ${BRAND_FONTS}
 <body>
 <div class="wrap">
   <div class="kpis">${kpis}</div>
+  ${deltaCard}
   <div class="card">
     <div class="card-head">
       <div class="seg" role="group" aria-label="Forecast horizon">
@@ -243,7 +244,6 @@ ${BRAND_FONTS}
     </div>
     <div class="chart"><div id="c-plan"></div></div>
   </div>
-  ${deltaCard}
 </div>
 <div class="tt" id="tt" role="status" aria-live="polite"></div>
 <script>
@@ -350,8 +350,7 @@ ${BRAND_FONTS}
     rows(0);
 
     var sh=document.getElementById("dshifts");
-    if(DELTAS.shifts===null) empty(sh,"Start-date shifts appear from the next weekly snapshot, which records start dates.");
-    else if(!DELTAS.shifts.length) empty(sh,"No start dates moved.");
+    if(!DELTAS.shifts.length) empty(sh,"No deals moved in time.");
     else DELTAS.shifts.forEach(function(s){
       var d=document.createElement("div");d.className="dshift";
       var t=document.createElement("span");t.textContent=s.title;

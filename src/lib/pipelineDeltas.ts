@@ -3,8 +3,10 @@
  * the most recent snapshot at least MIN_AGE_DAYS old (America/New_York), so a snapshot taken
  * yesterday doesn't shrink the window to one day. All $ are probability-weighted.
  *   • rows   — net weighted change per client in each focus quarter, with one note per moving deal
- *   • shifts — deals whose start date moved (needs snapshots that record start_date)
- *   • wins   — deals that reached 100% since the snapshot
+ *   • shifts — deals whose timing moved: start-date change when the snapshot records start_date,
+ *              else inferred from how the same total revenue moved between quarters
+ *   • wins   — deals that reached 100% since the snapshot (a deal new at 100% must earn revenue on
+ *              or after the snapshot, so backfilled historical schedules don't read as wins)
  *   • losses — deals that dropped to 0% (lost/unqualified) or left the forecast entirely
  * Pure: takes the raw Snapshots rows and live deals, returns plain data for the HTML to render.
  */
@@ -21,7 +23,7 @@ export type PipelineDeltas = {
   since: string; // snapshot date compared against, "YYYY-MM-DD"
   quarters: string[]; // focus quarters, in column order
   rows: DeltaRow[]; // sorted by |change| in the first quarter
-  shifts: Shift[] | null; // null until the compared snapshot records start dates
+  shifts: Shift[];
   wins: Win[];
   losses: Loss[];
 };
@@ -45,6 +47,59 @@ const money = (n: number) => {
   const s = a >= 1e6 ? `$${(a / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${Math.round(a / 1e3)}K` : `$${Math.round(a)}`;
   return `${n < 0 ? "−" : "+"}${s}`;
 };
+/** "4 days", "2 weeks", "3 months" — matches the Shifts list in the embed. */
+export const duration = (days: number) => {
+  const a = Math.abs(days);
+  if (a < 14) return `${a} day${a === 1 ? "" : "s"}`;
+  if (a < 60) return `${Math.round(a / 7)} weeks`;
+  const m = Math.round(a / 30.4);
+  return `${m} month${m === 1 ? "" : "s"}`;
+};
+const quarterStart = (q: string) => {
+  const [y, n] = q.split(".Q").map(Number);
+  return Date.UTC(y!, (n! - 1) * 3, 1);
+};
+
+/**
+ * Days the live schedule moved vs the snapshot, inferred from quarter totals: the shift that best
+ * maps the live monthly revenue (spread evenly per day) back onto the snapshot's quarters. Only
+ * answers when total revenue is unchanged (a re-phase, not a resize) and the fit is close; quarter
+ * granularity means moves that stay inside one quarter are invisible until start dates are recorded.
+ */
+export function inferShiftDays(byMonth: Map<string, number>, prevGross: Map<string, number>, quarters: string[]): number | null {
+  const prevTotal = [...prevGross.values()].reduce((s, v) => s + v, 0);
+  const liveTotal = [...byMonth.values()].reduce((s, v) => s + v, 0);
+  if (prevTotal <= 0 || Math.abs(liveTotal - prevTotal) > Math.max(500, prevTotal * 0.02)) return null;
+  const bounds = quarters.map((q, i) => [quarterStart(q), i + 1 < quarters.length ? quarterStart(quarters[i + 1]!) : Infinity] as const);
+  const months = [...byMonth].filter(([, v]) => v > 0).map(([m, v]) => {
+    const [y, mo] = m.split("-").map(Number);
+    const ms = Date.UTC(y!, mo! - 1, 1);
+    const me = Date.UTC(y!, mo!, 1);
+    return { ms, me, rate: v / (me - ms) };
+  });
+  const err = (s: number) => {
+    const off = s * 864e5; // live moved s days later → move it back to compare with the snapshot
+    let e = 0;
+    bounds.forEach(([qs, qe], i) => {
+      let v = 0;
+      for (const m of months) v += m.rate * Math.max(0, Math.min(qe, m.me - off) - Math.max(qs, m.ms - off));
+      e += Math.abs(v - (prevGross.get(quarters[i]!) ?? 0));
+    });
+    return e;
+  };
+  const e0 = err(0);
+  if (e0 <= Math.max(500, prevTotal * 0.02)) return null; // quarters line up: no visible move
+  let best = 0;
+  let bestErr = e0;
+  for (let s = 1; s <= 366; s++) {
+    for (const d of [s, -s]) {
+      const e = err(d);
+      if (e < bestErr - 1) [best, bestErr] = [d, e];
+    }
+  }
+  return best !== 0 && bestErr <= prevTotal * 0.1 ? best : null;
+}
+
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 864e5);
 
 /** Gross revenue a deal earns in the 90 days from its start, prorating the boundary months by active days. */
@@ -112,7 +167,10 @@ export function computePipelineDeltas(
     const pProb = p?.prob ?? 0;
     const dq = quarters.map((q) => (l ? liveW(l, q) : 0) - (p ? (p.gross.get(q) ?? 0) * p.prob : 0));
     const dGross = quarters.reduce((s, q) => s + (l ? liveG(l, q) : 0) - (p?.gross.get(q) ?? 0), 0);
-    const shiftDays = hasStart && p?.start && l?.startDate ? dayDiff(l.startDate, p.start) : 0;
+    // Timing move: recorded start dates when both sides have one, else inferred from the quarters.
+    const shiftDays =
+      p && l ? (hasStart && p.start && l.startDate ? dayDiff(l.startDate, p.start) : (inferShiftDays(l.byMonth, p.gross, allQ) ?? 0)) : 0;
+    const gq = quarters.map((q) => (l ? liveG(l, q) : 0) - (p?.gross.get(q) ?? 0));
 
     // One plain-language note per moving deal.
     const parts: string[] = [];
@@ -122,8 +180,14 @@ export function computePipelineDeltas(
       if (lProb >= 0.999 && pProb < 0.999) parts.push("won");
       else if (lProb === 0 && pProb > 0) parts.push("lost");
       else if (Math.abs(lProb - pProb) > 1e-6) parts.push(`${pct(pProb)} → ${pct(lProb)}`);
+      if (Math.abs(shiftDays) >= MIN_SHIFT_DAYS) parts.push(shiftDays > 0 ? `pushed out → ${duration(shiftDays)}` : `pulled up ← ${duration(shiftDays)}`);
+      else if (Math.abs(dGross) < MIN_MOVE) {
+        // Same revenue in the focus quarters, just re-phased between them.
+        const from = gq.findIndex((v) => v <= -MIN_MOVE);
+        const to = gq.findIndex((v) => v >= MIN_MOVE);
+        if (from >= 0 && to >= 0) parts.push(`revenue moved ${quarters[from]} → ${quarters[to]}`);
+      }
       if (Math.abs(dGross) >= MIN_MOVE) parts.push(`${money(dGross)} gross`);
-      if (Math.abs(shiftDays) >= MIN_SHIFT_DAYS) parts.push(`start ${shiftDays < 0 ? "earlier" : "later"}`);
     }
     if (dq.some((v) => Math.abs(v) >= MIN_MOVE)) {
       const row = byClient.get(client) ?? byClient.set(client, { client, dq: quarters.map(() => 0), notes: [] }).get(client)!;
@@ -132,7 +196,11 @@ export function computePipelineDeltas(
     }
 
     if (l && p && lProb > 0 && Math.abs(shiftDays) >= MIN_SHIFT_DAYS) shifts.push({ title, client, days: shiftDays });
-    if (l && lProb >= 0.999 && pProb < 0.999) {
+    // A deal new at 100% only counts if it earns revenue from the snapshot on: a backfilled schedule
+    // for past work (e.g. an old change request logged late) is bookkeeping, not a win.
+    const sinceMonth = since.slice(0, 7);
+    const isWin = l && lProb >= 0.999 && (p ? pProb < 0.999 : [...l.byMonth].some(([m, v]) => m >= sinceMonth && v > 0));
+    if (l && isWin) {
       wins.push({ title, client, start: l.startDate ?? "", rev90: Math.round(revenue90(l)), contract: l.contractType });
     }
     if (p && pProb > 0 && lProb === 0) {
@@ -147,7 +215,7 @@ export function computePipelineDeltas(
     since,
     quarters,
     rows,
-    shifts: hasStart ? shifts.sort((a, b) => Math.abs(b.days) - Math.abs(a.days)) : null,
+    shifts: shifts.sort((a, b) => Math.abs(b.days) - Math.abs(a.days)),
     wins: wins.sort((a, b) => b.rev90 - a.rev90),
     losses,
   };

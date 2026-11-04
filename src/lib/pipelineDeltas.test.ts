@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict";
 import type { DealAgg } from "./render.js";
-import { computePipelineDeltas, revenue90 } from "./pipelineDeltas.js";
+import { computePipelineDeltas, inferShiftDays, revenue90 } from "./pipelineDeltas.js";
 import { SNAPSHOT_HEADERS } from "./snapshot.js";
 import { quartersRange } from "./forecast.js";
 
@@ -94,10 +94,51 @@ assert.equal(computePipelineDeltas([snap("2026-11-03", "a", "A", 1, {})], [], FO
   );
 }
 
-// Snapshots without start dates → shifts unknown (null), not "none".
+/** $1,000/day from `start` for `days` days, by month. */
+function daily(start: string, days: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (let i = 0; i < days; i++) {
+    const m = new Date(Date.parse(`${start}T00:00:00Z`) + i * 864e5).toISOString().slice(0, 7);
+    out[m] = (out[m] ?? 0) + 1000;
+  }
+  return out;
+}
+const toQuarters = (months: Record<string, number>) => {
+  const q: Record<string, number> = {};
+  for (const [m, v] of Object.entries(months)) {
+    const k = `${m.slice(0, 4)}.Q${Math.ceil(Number(m.slice(5, 7)) / 3)}`;
+    q[k] = (q[k] ?? 0) + v;
+  }
+  return q;
+};
+
+// No start dates recorded: a pure re-phase across a quarter boundary is inferred as a push.
 {
-  const r = computePipelineDeltas([snap("2026-11-02", "a", "A", 0.4, { "2026.Q4": 1000 })], [deal("a", "A", 0.4, { "2026-10": 1000 }, "2026-12-01")], FOCUS, new Map(), "2026-11-04")!;
-  assert.equal(r.shifts, null);
+  const prev = toQuarters(daily("2026-12-01", 90));
+  const live = deal("pm", "Plante Moran", 0.2, daily("2026-12-15", 90));
+  const days = inferShiftDays(live.byMonth, new Map(Object.entries(prev)), QS)!;
+  assert.ok(Math.abs(days - 14) <= 2, `inferred ${days}`);
+  const r = computePipelineDeltas([snap("2026-11-02", "pm", "Plante Moran", 0.2, prev)], [live], FOCUS, new Map(), "2026-11-09")!;
+  assert.equal(r.shifts.length, 1);
+  assert.match(r.rows[0]!.notes[0]!, /pushed out → 2 weeks/);
+  // Pulled earlier reads the other way.
+  const early = deal("pm", "Plante Moran", 0.2, daily("2026-11-17", 90));
+  const r2 = computePipelineDeltas([snap("2026-11-02", "pm", "Plante Moran", 0.2, prev)], [early], FOCUS, new Map(), "2026-11-09")!;
+  assert.match(r2.rows[0]!.notes[0]!, /pulled up ← 2 weeks/);
+  // A resize (total changed) is not called a shift.
+  assert.equal(inferShiftDays(deal("x", "X", 1, daily("2026-12-15", 120)).byMonth, new Map(Object.entries(prev)), QS), null);
+}
+
+// A deal new at 100% whose revenue is all in the past (backfilled old change request) is not a win.
+{
+  const r = computePipelineDeltas(
+    [snap("2026-11-02", "other", "A", 1, {})],
+    [deal("cr", "Unanet", 1, { "2026-02": 6250 }), deal("fresh", "Zed", 1, { "2026-12": 9000 })],
+    FOCUS,
+    new Map(),
+    "2026-11-09",
+  )!;
+  assert.deepEqual(r.wins.map((w) => w.title), ["fresh title"]);
 }
 
 console.log("pipelineDeltas: ok");
