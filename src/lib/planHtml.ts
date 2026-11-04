@@ -238,7 +238,9 @@ ${BRAND_FONTS}
   .dshift .ar.early{color:var(--good-ink)} .dshift .ar.late{color:var(--warn-ink)}
   .dshift .cl{color:var(--ink-3);font-size:11.5px}
   .mention{color:inherit;text-decoration:none;white-space:normal}
-  .mention svg{width:13px;height:13px;vertical-align:-2px;margin-right:3px;color:var(--ink-3)}
+  .mention svg{width:15px;height:15px;vertical-align:-3px;margin-right:2px;color:#A6A299}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mention svg{color:#7F7F7F}}
+  :root[data-theme="dark"] .mention svg{color:#7F7F7F}
   .mention span{border-bottom:1px solid var(--hair)}
   .mention:hover span{border-bottom-color:var(--ink-3)}
   .dempty{font-size:12px;color:var(--ink-3);padding:4px 0}
@@ -374,10 +376,10 @@ ${BRAND_FONTS}
     var dcard=document.getElementById("dcard"),dtog=document.getElementById("dtoggle");
     dtog.addEventListener("click",function(){var c=dcard.classList.toggle("collapsed");dtog.setAttribute("aria-expanded",String(!c));});
 
-    // Deal link styled like a Notion page mention: grey page glyph, then the title.
+    // Deal link styled like a Notion page mention: Notion's grey signature-document icon (the Deals icon), then the title.
     function mention(title,url){
       var a=document.createElement("a");a.className="mention";a.href=url;a.target="_blank";a.rel="noopener";
-      a.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.2L12.5 4.8V14a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9 1.7V5h3.3M5.6 8h4.8M5.6 10.4h4.8M5.6 12.7h3" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>';
+      a.innerHTML='<svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M9.375 2.5H3.75v15h12.5V9.375H9.375zm1.25 11.875H15v1.25h-4.375zm-1.25.366-.884.884-1.303-1.303-1.304 1.303L5 14.741l1.303-1.303L5 12.134l.884-.884 1.303 1.303 1.304-1.303.884.884-1.303 1.303zm6.875-7.866v1.25h-5.625V2.5h1.25z"/></svg>';
       var t=document.createElement("span");t.textContent=title;a.appendChild(t);return a;
     }
     var sh=document.getElementById("dshifts");
