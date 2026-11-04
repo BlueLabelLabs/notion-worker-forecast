@@ -50,17 +50,11 @@ export function renderPlanHtml(
   const sinceLabel = deltas
     ? new Date(`${deltas.since}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
     : "";
-  // Collapsed, the card shows only the current (first focus) quarter's net weighted change.
-  const net0 = deltas ? deltas.rows.reduce((s, r) => s + (r.dq[0] ?? 0), 0) : 0;
-  const netAbs = Math.abs(net0);
-  const netTxt =
-    netAbs < 500 ? "no change" : `${net0 < 0 ? "−" : "+"}${netAbs >= 1e6 ? `$${(netAbs / 1e6).toFixed(1)}M` : `$${Math.round(netAbs / 1e3)}K`}`;
-  const netCls = netAbs < 500 ? "flat" : net0 > 0 ? "up" : "down";
   const deltaCard = !deltas
     ? ""
     : `<div class="card dcard" id="dcard">
     <div class="card-head">
-      <button type="button" class="dtoggle" id="dtoggle" aria-expanded="true" aria-controls="dbody"><span class="chev" aria-hidden="true"></span><span class="dtitle">Pipeline changes</span> <span class="asof">since ${esc(sinceLabel)} snapshot &middot; weighted</span><span class="dnet ${netCls}">${esc(deltas.quarters[0] ?? "")} net <b>${netTxt}</b></span></button>
+      <div><span class="dtitle">Pipeline changes</span> <span class="asof">since ${esc(sinceLabel)} snapshot &middot; weighted</span></div>
       <div class="seg" id="dsort" role="group" aria-label="Sort by biggest movers in">${deltas.quarters
         .map((q, i) => `<button type="button" data-i="${i}"${i === 0 ? ' class="on"' : ""}>${esc(q)}</button>`)
         .join("")}</div>
@@ -211,16 +205,6 @@ ${BRAND_FONTS}
   .tt-r .v{font-family:var(--mono);color:var(--ink)}
   .tt-r .sw{width:9px;height:9px;border-radius:2px}
   /* Pipeline changes */
-  .dtoggle{appearance:none;border:0;background:transparent;padding:0;margin:0;cursor:pointer;text-align:left;color:inherit;font:inherit;display:inline-flex;align-items:baseline;gap:6px;flex-wrap:wrap}
-  .dtoggle:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
-  .dtoggle .chev{display:inline-block;width:6px;height:6px;border-right:1.5px solid var(--ink-3);border-bottom:1.5px solid var(--ink-3);transform:translateY(-2px) rotate(45deg);transition:transform .15s}
-  .dcard.collapsed .dtoggle .chev{transform:rotate(-45deg)}
-  .dnet{display:none;font-family:var(--book);font-size:12.5px;color:var(--ink-2);margin-left:6px}
-  .dnet b{font-family:var(--mono);font-weight:400}
-  .dnet.up b{color:var(--good-ink)} .dnet.down b{color:var(--crit-ink)} .dnet.flat b{color:var(--ink-3)}
-  .dcard.collapsed .dnet{display:inline}
-  .dcard.collapsed #dbody,.dcard.collapsed #dsort{display:none}
-  .dcard.collapsed .card-head{margin-bottom:2px}
   .dtitle{font-family:var(--book);font-size:13px;color:var(--ink)}
   .dscroll{overflow-x:auto}
   .dt{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -239,8 +223,10 @@ ${BRAND_FONTS}
   .dshift .cl{color:var(--ink-3);font-size:11.5px}
   .mention{color:inherit;text-decoration:none;white-space:normal}
   .mention svg{width:15px;height:15px;vertical-align:-3px;margin-right:2px;color:#A6A299}
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mention svg{color:#7F7F7F}}
+  .mention.acct svg{color:#CB912F}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mention svg{color:#7F7F7F}:root:not([data-theme="light"]) .mention.acct svg{color:#CA8E1B}}
   :root[data-theme="dark"] .mention svg{color:#7F7F7F}
+  :root[data-theme="dark"] .mention.acct svg{color:#CA8E1B}
   .mention span{border-bottom:1px solid var(--hair)}
   .mention:hover span{border-bottom-color:var(--ink-3)}
   .dempty{font-size:12px;color:var(--ink-3);padding:4px 0}
@@ -362,7 +348,7 @@ ${BRAND_FONTS}
       var R=DELTAS.rows.slice().sort(function(a,b){return Math.abs(b.dq[sortI])-Math.abs(a.dq[sortI]);});
       if(!R.length){var tr=document.createElement("tr"),c=td("No weighted changes since the last snapshot.","flat");c.colSpan=DELTAS.quarters.length+2;tr.appendChild(c);body.appendChild(tr);return;}
       R.forEach(function(r){
-        var tr=document.createElement("tr");tr.appendChild(td(r.client));
+        var tr=document.createElement("tr");tr.appendChild(acctCell(r));
         r.dq.forEach(function(v){tr.appendChild(td(signed(v),"num "+(Math.abs(v)<500?"flat":v>0?"up":"down")));});
         var why=td("","why");r.notes.forEach(function(n){var s=document.createElement("span");s.className="sub";s.appendChild(mention(n.title,n.url));s.appendChild(document.createTextNode(" "+n.text));why.appendChild(s);});tr.appendChild(why);
         body.appendChild(tr);
@@ -371,24 +357,28 @@ ${BRAND_FONTS}
     [].slice.call(document.querySelectorAll("#dsort button")).forEach(function(b){
       b.addEventListener("click",function(){[].slice.call(document.querySelectorAll("#dsort button")).forEach(function(o){o.classList.toggle("on",o===b);});rows(+b.getAttribute("data-i"));});
     });
-    rows(0);
 
-    var dcard=document.getElementById("dcard"),dtog=document.getElementById("dtoggle");
-    dtog.addEventListener("click",function(){var c=dcard.classList.toggle("collapsed");dtog.setAttribute("aria-expanded",String(!c));});
-
-    // Deal link styled like a Notion page mention: Notion's grey signature-document icon (the Deals icon), then the title.
-    function mention(title,url){
-      var a=document.createElement("a");a.className="mention";a.href=url;a.target="_blank";a.rel="noopener";
-      a.innerHTML='<svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M9.375 2.5H3.75v15h12.5V9.375H9.375zm1.25 11.875H15v1.25h-4.375zm-1.25.366-.884.884-1.303-1.303-1.304 1.303L5 14.741l1.303-1.303L5 12.134l.884-.884 1.303 1.303 1.304-1.303.884.884-1.303 1.303zm6.875-7.866v1.25h-5.625V2.5h1.25z"/></svg>';
+    // Links styled like Notion page mentions, with the Notion icons of the two databases:
+    // Deals = grey signature-document, Client Accounts = yellow accessibility figure.
+    var ICONS={
+      deal:'<svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M9.375 2.5H3.75v15h12.5V9.375H9.375zm1.25 11.875H15v1.25h-4.375zm-1.25.366-.884.884-1.303-1.303-1.304 1.303L5 14.741l1.303-1.303L5 12.134l.884-.884 1.303 1.303 1.304-1.303.884.884-1.303 1.303zm6.875-7.866v1.25h-5.625V2.5h1.25z"/></svg>',
+      acct:'<svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2.5c-4.14 0-7.5 3.36-7.5 7.5s3.36 7.5 7.5 7.5 7.5-3.36 7.5-7.5-3.36-7.5-7.5-7.5m0 1.563c.772 0 1.25.478 1.25 1.25 0 .771-.478 1.25-1.25 1.25s-1.25-.479-1.25-1.25c0-.772.478-1.25 1.25-1.25m4.375 4.687h-3.203v1.953l1.64 4.922h-1.48L10 11.635l-1.331 3.99H7.187l1.641-4.922V8.75H5.625V7.5h8.75z"/></svg>'
+    };
+    function mention(title,url,kind){
+      if(!url){var p=document.createElement("span");p.textContent=title;return p;}
+      var a=document.createElement("a");a.className="mention "+(kind||"deal");a.href=url;a.target="_blank";a.rel="noopener";
+      a.innerHTML=ICONS[kind||"deal"];
       var t=document.createElement("span");t.textContent=title;a.appendChild(t);return a;
     }
+    function acctCell(x){var c=document.createElement("td");c.appendChild(mention(x.client,x.clientUrl,"acct"));return c;}
+    rows(0);
     var sh=document.getElementById("dshifts");
     if(!DELTAS.shifts.length) empty(sh,"No deals moved in time.");
     else DELTAS.shifts.forEach(function(s){
       var d=document.createElement("div");d.className="dshift";
       var t=mention(s.title,s.url);
       var a=document.createElement("span");a.className="ar "+(s.days<0?"early":"late");a.textContent=(s.days<0?"← ":"→ ")+dur(s.days);
-      var c=document.createElement("span");c.className="cl";c.textContent=s.client!==s.title?s.client:"";
+      var c=document.createElement("span");c.className="cl";if(s.client!==s.title)c.appendChild(mention(s.client,s.clientUrl,"acct"));
       d.appendChild(t);d.appendChild(a);d.appendChild(c);sh.appendChild(d);
     });
 
@@ -400,7 +390,7 @@ ${BRAND_FONTS}
       thead.appendChild(hr);t.appendChild(thead);
       var tb=document.createElement("tbody");list.forEach(function(x){var tr=document.createElement("tr");cells(x).forEach(function(c){tr.appendChild(c);});tb.appendChild(tr);});t.appendChild(tb);
     }
-    function clientCell(x){var c=td(x.client),s=document.createElement("span");s.className="sub";s.appendChild(mention(x.title,x.url));c.appendChild(s);return c;}
+    function clientCell(x){var c=acctCell(x),s=document.createElement("span");s.className="sub";s.appendChild(mention(x.title,x.url));c.appendChild(s);return c;}
     grid("dwins",[["Client"],["Start Date"],["90d Revenue","num"],["Contract Format"]],DELTAS.wins,function(w){return [clientCell(w),td(mdy(w.start)),td(w.rev90>=1e6?"$"+(w.rev90/1e6).toFixed(1)+"M":"$"+Math.round(w.rev90/1e3)+"K","num"),td(w.contract||"—")];},"No new wins since the last snapshot.");
     grid("dlosses",[["Client"],["Reason"]],DELTAS.losses,function(l){return [clientCell(l),td(l.reason||"—")];},"No losses since the last snapshot.");
   })();
@@ -449,9 +439,14 @@ ${BRAND_FONTS}
   }
   GLIDE.forEach(function(q){var host=document.getElementById("g-"+q.quarter.replace(/\\./g,"_"));if(host)glide(host,q);});
 
-  // Expand/collapse the KPI cards together — both open or both closed.
+  // Expand/collapse the KPI cards together — both open or both closed. The Pipeline changes card
+  // belongs to that expanded view: it shows under the line charts only while they are open (and
+  // always, if there are no line charts to expand).
   var cards=[].slice.call(document.querySelectorAll("details.kpi"));
-  cards.forEach(function(d){d.addEventListener("toggle",function(){cards.forEach(function(o){if(o!==d&&o.open!==d.open)o.open=d.open;});});});
+  var dcard=document.getElementById("dcard");
+  function syncDeltas(){if(dcard)dcard.hidden=cards.length>0&&!cards[0].open;}
+  cards.forEach(function(d){d.addEventListener("toggle",function(){cards.forEach(function(o){if(o!==d&&o.open!==d.open)o.open=d.open;});syncDeltas();});});
+  syncDeltas();
 })();
 </script>
 </body>

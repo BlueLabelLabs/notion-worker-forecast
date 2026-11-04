@@ -137,7 +137,7 @@ Notion API v2026-03-11 constraints: embed PATCH rejects `embed.file_upload` and
 positional `after`; embeds expose only caption and url with **no settable
 height**; uploads are immutable.
 
-**Pipeline changes** (`pipelineDeltas.ts`, collapsible card between the KPI cards and the bar chart; renders expanded, and collapsed shows only the current quarter's net weighted change): live vs the
+**Pipeline changes** (`pipelineDeltas.ts`, card between the KPI cards and the bar chart, shown only while the KPI line charts are expanded: it opens and closes with them): live vs the
 latest snapshot at least 6 days old (ET; a rolling week, so Tuesday's fresh
 snapshot doesn't shrink the window to a day), all $ **weighted**. Net change per
 client in the two focus quarters with one note per moving deal, sorted by the
@@ -148,7 +148,7 @@ an unchanged total moved between quarters; notes read "pushed out → 2 weeks" /
 a deal new at 100% must earn revenue from the snapshot month on, so backfilled
 past schedules aren't wins); Losses (dropped to
 0% with the Deals' `ZD | Stage` + loss-reason multi-selects, or left the forecast).
-Loss "detailed reason" (Client Notes, Growth Rally transcripts) is not built yet.
+Loss "detailed reason" (Client Notes, Growth Rally transcripts) is not built yet. Deal and client names link to their Notion pages as mention-style links with the databases' Notion icons (Deals: grey signature-document; Client Accounts: yellow accessibility figure, from the Deals `Client Account` relation). A resize with no other change reads "value increased" / "value decreased".
 
 **Coverage-funnel model.** Per near-quarter window, open pipeline by stage 10–80%
 against a per-stage "ideal minimum". Three models via toggle, **Distributed is

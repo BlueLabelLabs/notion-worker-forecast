@@ -139,7 +139,8 @@ export const DEALS_DS = "ee89a6dd-be27-4bc5-bc5f-86b6ef40be2b";
  * = 0 < Stage Probability < 1, which excludes Won (1.0) and dead/parked stages (0), and is robust to
  * stage renames. Deals that already have schedules are skipped — they arrive via readSegments with
  * real, time-phased revenue. The same pass also returns, by deal id, every deal's Notion "Start Date", its
- * first "Pursuit Lead" name, and, for 0% (lost/unqualified) deals, its stage and selected reasons.
+ * first "Pursuit Lead" name, its "Client Account" page id, and, for 0% (lost/unqualified) deals, its
+ * stage and selected reasons.
  * Placeholders with no Client Partner fall back to that Pursuit Lead.
  */
 export async function readOpenPlaceholderDeals(notion: Client): Promise<{
@@ -147,11 +148,13 @@ export async function readOpenPlaceholderDeals(notion: Client): Promise<{
   startDates: Map<string, string>;
   pursuitLeads: Map<string, string>;
   lossReasons: Map<string, string>;
+  accounts: Map<string, string>; // deal id → its Client Account page id
 }> {
   const out: DealAgg[] = [];
   const startDates = new Map<string, string>();
   const lossReasons = new Map<string, string>(); // stage plus selected reasons, e.g. Lost: Price / commercial terms
   const leadRefs = new Map<string, { id: string; name: string }>(); // deal id → first Pursuit Lead
+  const accounts = new Map<string, string>();
   let cursor: string | undefined;
   do {
     const res = await notion.dataSources.query({ data_source_id: DEALS_DS, start_cursor: cursor, page_size: 100 });
@@ -161,6 +164,8 @@ export async function readOpenPlaceholderDeals(notion: Client): Promise<{
       if (!id || !props) continue;
       const start = notionPropertyToDate(props["Start Date"]);
       if (start) startDates.set(id, start.slice(0, 10));
+      const account = relationId(props["Client Account"]);
+      if (account) accounts.set(id, account);
       const lead = firstPerson(props["Pursuit Lead"]);
       if (lead) leadRefs.set(id, lead);
       const prob = numberOf(props["Stage Probability"]);
@@ -204,7 +209,7 @@ export async function readOpenPlaceholderDeals(notion: Client): Promise<{
   const pursuitLeads = new Map<string, string>();
   for (const [dealId, { id }] of leadRefs) if (names.get(id)) pursuitLeads.set(dealId, names.get(id)!);
   applyPursuitLeadFallback(out, pursuitLeads);
-  return { placeholders: out, startDates, pursuitLeads, lossReasons };
+  return { placeholders: out, startDates, pursuitLeads, lossReasons, accounts };
 }
 
 /** Option names of a Notion multi-select property, in order. */

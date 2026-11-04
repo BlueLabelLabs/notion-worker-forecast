@@ -16,10 +16,11 @@ import { SNAP_COL } from "./snapshot.js";
 import { quartersRange, monthToQuarter } from "./forecast.js";
 
 export type DealNote = { title: string; url: string; text: string };
-export type DeltaRow = { client: string; dq: number[]; notes: DealNote[] };
-export type Shift = { title: string; url: string; client: string; days: number }; // days > 0 = later, < 0 = earlier
-export type Win = { title: string; url: string; client: string; start: string; rev90: number; contract: string };
-export type Loss = { title: string; url: string; client: string; reason: string };
+// clientUrl: the Client Account page, "" when the deal has no account (it then stands as its own row).
+export type DeltaRow = { client: string; clientUrl: string; dq: number[]; notes: DealNote[] };
+export type Shift = { title: string; url: string; client: string; clientUrl: string; days: number }; // days > 0 = later, < 0 = earlier
+export type Win = { title: string; url: string; client: string; clientUrl: string; start: string; rev90: number; contract: string };
+export type Loss = { title: string; url: string; client: string; clientUrl: string; reason: string };
 export type PipelineDeltas = {
   since: string; // snapshot date compared against, "YYYY-MM-DD"
   quarters: string[]; // focus quarters, in column order
@@ -121,6 +122,7 @@ export function computePipelineDeltas(
   quarters: string[],
   lossReasons: Map<string, string>,
   today: string, // "YYYY-MM-DD", America/New_York
+  accounts: Map<string, string> = new Map(), // deal id → Client Account page id
 ): PipelineDeltas | null {
   const isDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
   const dates = [...new Set(snapRows.map((r) => String(r?.[SNAP_COL.date] ?? "")))].filter((d) => isDate(d) && d < today).sort();
@@ -160,6 +162,8 @@ export function computePipelineDeltas(
     const title = l?.dealTitle || p?.title || "(untitled deal)";
     const url = l?.dealUrl || `https://www.notion.so/${id.replace(/-/g, "")}`; // deals gone from the forecast still resolve by id
     const client = l?.client || p?.client || title; // unaccounted New Opportunities stand as their own row
+    const acct = client !== title ? accounts.get(id) : undefined;
+    const clientUrl = acct ? `https://www.notion.so/${acct.replace(/-/g, "")}` : "";
     const lProb = l?.probability ?? 0;
     const pProb = p?.prob ?? 0;
     const dq = quarters.map((q) => (l ? liveW(l, q) : 0) - (p ? (p.gross.get(q) ?? 0) * p.prob : 0));
@@ -185,24 +189,25 @@ export function computePipelineDeltas(
         if (from >= 0 && to >= 0) parts.push(`revenue moved ${quarters[from]} → ${quarters[to]}`);
       }
       // Amounts live in the quarter columns; the note only says why.
-      if (!parts.length && Math.abs(dGross) >= MIN_MOVE) parts.push(dGross > 0 ? "scope added" : "scope reduced");
+      if (!parts.length && Math.abs(dGross) >= MIN_MOVE) parts.push(dGross > 0 ? "value increased" : "value decreased");
     }
     if (dq.some((v) => Math.abs(v) >= MIN_MOVE)) {
-      const row = byClient.get(client) ?? byClient.set(client, { client, dq: quarters.map(() => 0), notes: [] }).get(client)!;
+      const row = byClient.get(client) ?? byClient.set(client, { client, clientUrl, dq: quarters.map(() => 0), notes: [] }).get(client)!;
+      if (!row.clientUrl) row.clientUrl = clientUrl;
       dq.forEach((v, i) => (row.dq[i]! += v));
       row.notes.push({ title, url, text: parts.join(", ") || "schedule revised" });
     }
 
-    if (l && p && lProb > 0 && Math.abs(shiftDays) >= MIN_SHIFT_DAYS) shifts.push({ title, url, client, days: shiftDays });
+    if (l && p && lProb > 0 && Math.abs(shiftDays) >= MIN_SHIFT_DAYS) shifts.push({ title, url, client, clientUrl, days: shiftDays });
     // A deal new at 100% only counts if it earns revenue from the snapshot on: a backfilled schedule
     // for past work (e.g. an old change request logged late) is bookkeeping, not a win.
     const sinceMonth = since.slice(0, 7);
     const isWin = l && lProb >= 0.999 && (p ? pProb < 0.999 : [...l.byMonth].some(([m, v]) => m >= sinceMonth && v > 0));
     if (l && isWin) {
-      wins.push({ title, url, client, start: l.startDate ?? "", rev90: Math.round(revenue90(l)), contract: l.contractType });
+      wins.push({ title, url, client, clientUrl, start: l.startDate ?? "", rev90: Math.round(revenue90(l)), contract: l.contractType });
     }
     if (p && pProb > 0 && lProb === 0) {
-      losses.push({ title, url, client, reason: l ? lossReasons.get(id) || "Lost" : "Removed from forecast" });
+      losses.push({ title, url, client, clientUrl, reason: l ? lossReasons.get(id) || "Lost" : "Removed from forecast" });
     }
   }
 

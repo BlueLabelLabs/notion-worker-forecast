@@ -79,13 +79,13 @@ worker.webhook("renderNotionFunnel", {
         let deltas: PipelineDeltas | null = null;
         try {
           if (snapRows.length) {
-            const { startDates, lossReasons } = await readOpenPlaceholderDeals(notion);
+            const { startDates, lossReasons, accounts } = await readOpenPlaceholderDeals(notion);
             // Same start-date rule as the snapshot rows, on copies so the other reports are unaffected.
             const live = deals.map((d) => ({ ...d, startDate: startDates.get(d.dealId) ?? d.startDate }));
             const quarters = quartersRange();
             const ci = quarters.indexOf(kpiQuarter);
             const todayET = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now);
-            if (ci >= 0) deltas = computePipelineDeltas(snapRows, live, quarters.slice(ci, ci + 2), lossReasons, todayET);
+            if (ci >= 0) deltas = computePipelineDeltas(snapRows, live, quarters.slice(ci, ci + 2), lossReasons, todayET, accounts);
           }
         } catch (e) {
           console.warn("[forecast] pipeline deltas unavailable:", e instanceof Error ? e.message : e);

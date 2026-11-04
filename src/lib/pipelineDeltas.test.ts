@@ -85,7 +85,7 @@ assert.equal(computePipelineDeltas([snap("2026-11-03", "a", "A", 1, {})], [], FO
   // Sorted by the first quarter's absolute change.
   assert.deepEqual(r.rows.map((x) => x.client).slice(0, 3), ["Up Co", "Lost Co", "Win Co"]);
 
-  assert.deepEqual(r.shifts, [{ title: "won title", url: "https://www.notion.so/won", client: "Win Co", days: 16 }]);
+  assert.deepEqual(r.shifts, [{ title: "won title", url: "https://www.notion.so/won", client: "Win Co", clientUrl: "", days: 16 }]);
   assert.equal(r.wins.length, 1);
   assert.equal(r.wins[0]!.rev90, 50000); // Dec fully inside the 90 days from Dec 1
   assert.deepEqual(
@@ -142,3 +142,18 @@ const toQuarters = (months: Record<string, number>) => {
 }
 
 console.log("pipelineDeltas: ok");
+
+// Client accounts link to their Notion page; a deal with no account (its own row) gets no client link.
+{
+  const r = computePipelineDeltas(
+    [snap("2026-11-02", "a-1", "Acme", 0.4, { "2026.Q4": 10000 })],
+    [deal("a-1", "Acme", 0.6, { "2026-10": 10000 }), deal("n-1", "", 0.1, { "2026-11": 20000 })],
+    FOCUS,
+    new Map(),
+    "2026-11-09",
+    new Map([["a-1", "acct-1"], ["n-1", "acct-2"]]),
+  )!;
+  const by = new Map(r.rows.map((x) => [x.client, x.clientUrl]));
+  assert.equal(by.get("Acme"), "https://www.notion.so/acct1");
+  assert.equal(by.get("n-1 title"), "");
+}
