@@ -137,7 +137,7 @@ Notion API v2026-03-11 constraints: embed PATCH rejects `embed.file_upload` and
 positional `after`; embeds expose only caption and url with **no settable
 height**; uploads are immutable.
 
-**Pipeline changes** (`pipelineDeltas.ts`, card between the KPI cards and the bar chart): live vs the
+**Pipeline changes** (`pipelineDeltas.ts`, collapsible card between the KPI cards and the bar chart; renders expanded, and collapsed shows only the current quarter's net weighted change): live vs the
 latest snapshot at least 6 days old (ET; a rolling week, so Tuesday's fresh
 snapshot doesn't shrink the window to a day), all $ **weighted**. Net change per
 client in the two focus quarters with one note per moving deal, sorted by the

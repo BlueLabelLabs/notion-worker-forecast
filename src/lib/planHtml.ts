@@ -50,15 +50,22 @@ export function renderPlanHtml(
   const sinceLabel = deltas
     ? new Date(`${deltas.since}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
     : "";
+  // Collapsed, the card shows only the current (first focus) quarter's net weighted change.
+  const net0 = deltas ? deltas.rows.reduce((s, r) => s + (r.dq[0] ?? 0), 0) : 0;
+  const netAbs = Math.abs(net0);
+  const netTxt =
+    netAbs < 500 ? "no change" : `${net0 < 0 ? "−" : "+"}${netAbs >= 1e6 ? `$${(netAbs / 1e6).toFixed(1)}M` : `$${Math.round(netAbs / 1e3)}K`}`;
+  const netCls = netAbs < 500 ? "flat" : net0 > 0 ? "up" : "down";
   const deltaCard = !deltas
     ? ""
-    : `<div class="card dcard">
+    : `<div class="card dcard" id="dcard">
     <div class="card-head">
-      <div><span class="dtitle">Pipeline changes</span> <span class="asof">since ${esc(sinceLabel)} snapshot &middot; weighted</span></div>
+      <button type="button" class="dtoggle" id="dtoggle" aria-expanded="true" aria-controls="dbody"><span class="chev" aria-hidden="true"></span><span class="dtitle">Pipeline changes</span> <span class="asof">since ${esc(sinceLabel)} snapshot &middot; weighted</span><span class="dnet ${netCls}">${esc(deltas.quarters[0] ?? "")} net <b>${netTxt}</b></span></button>
       <div class="seg" id="dsort" role="group" aria-label="Sort by biggest movers in">${deltas.quarters
         .map((q, i) => `<button type="button" data-i="${i}"${i === 0 ? ' class="on"' : ""}>${esc(q)}</button>`)
         .join("")}</div>
     </div>
+    <div id="dbody">
     <div class="dscroll"><table class="dt">
       <thead><tr><th>Client</th>${deltas.quarters.map((q, i) => `<th class="num" data-i="${i}">${esc(q)}</th>`).join("")}<th>What changed</th></tr></thead>
       <tbody id="drows"></tbody>
@@ -66,6 +73,7 @@ export function renderPlanHtml(
     <div class="dsub"><h3>Shifts</h3><div id="dshifts"></div></div>
     <div class="dsub"><h3>Wins</h3><div class="dscroll"><table class="dt" id="dwins"></table></div></div>
     <div class="dsub"><h3>Losses</h3><div class="dscroll"><table class="dt" id="dlosses"></table></div></div>
+    </div>
   </div>`;
   const data = rows.map((r) => {
     const tot = r.signed + r.contW + r.newW;
@@ -203,6 +211,16 @@ ${BRAND_FONTS}
   .tt-r .v{font-family:var(--mono);color:var(--ink)}
   .tt-r .sw{width:9px;height:9px;border-radius:2px}
   /* Pipeline changes */
+  .dtoggle{appearance:none;border:0;background:transparent;padding:0;margin:0;cursor:pointer;text-align:left;color:inherit;font:inherit;display:inline-flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+  .dtoggle:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .dtoggle .chev{display:inline-block;width:6px;height:6px;border-right:1.5px solid var(--ink-3);border-bottom:1.5px solid var(--ink-3);transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+  .dcard.collapsed .dtoggle .chev{transform:rotate(-45deg)}
+  .dnet{display:none;font-family:var(--book);font-size:12.5px;color:var(--ink-2);margin-left:6px}
+  .dnet b{font-family:var(--mono);font-weight:400}
+  .dnet.up b{color:var(--good-ink)} .dnet.down b{color:var(--crit-ink)} .dnet.flat b{color:var(--ink-3)}
+  .dcard.collapsed .dnet{display:inline}
+  .dcard.collapsed #dbody,.dcard.collapsed #dsort{display:none}
+  .dcard.collapsed .card-head{margin-bottom:2px}
   .dtitle{font-family:var(--book);font-size:13px;color:var(--ink)}
   .dscroll{overflow-x:auto}
   .dt{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -352,6 +370,9 @@ ${BRAND_FONTS}
       b.addEventListener("click",function(){[].slice.call(document.querySelectorAll("#dsort button")).forEach(function(o){o.classList.toggle("on",o===b);});rows(+b.getAttribute("data-i"));});
     });
     rows(0);
+
+    var dcard=document.getElementById("dcard"),dtog=document.getElementById("dtoggle");
+    dtog.addEventListener("click",function(){var c=dcard.classList.toggle("collapsed");dtog.setAttribute("aria-expanded",String(!c));});
 
     // Deal link styled like a Notion page mention: grey page glyph, then the title.
     function mention(title,url){
