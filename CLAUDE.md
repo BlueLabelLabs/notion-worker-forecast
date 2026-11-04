@@ -138,7 +138,8 @@ positional `after`; embeds expose only caption and url with **no settable
 height**; uploads are immutable.
 
 **Pipeline changes** (`pipelineDeltas.ts`, card under the bar chart): live vs the
-most recent snapshot dated before today (ET), all $ **weighted**. Net change per
+latest snapshot at least 6 days old (ET; a rolling week, so Tuesday's fresh
+snapshot doesn't shrink the window to a day), all $ **weighted**. Net change per
 client in the two focus quarters with one note per moving deal, sorted by the
 selected quarter's biggest movers (quarter toggle); Shifts (start-date moves of
 ≥3 days, from snapshot `start_date`; shows a placeholder until a snapshot has

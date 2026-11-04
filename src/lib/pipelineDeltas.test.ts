@@ -49,10 +49,13 @@ function snap(date: string, id: string, client: string, prob: number, quarters: 
 
 // No snapshot before today → nothing to compare.
 assert.equal(computePipelineDeltas([snap("2026-11-04", "a", "A", 1, {})], [], FOCUS, new Map(), "2026-11-04"), null);
+// Only a recent snapshot → use it rather than show nothing.
+assert.equal(computePipelineDeltas([snap("2026-11-03", "a", "A", 1, {})], [], FOCUS, new Map(), "2026-11-04")!.since, "2026-11-03");
 
 {
   const snaps = [
-    // An older snapshot that must be ignored in favour of the latest one before today.
+    // A newer snapshot (yesterday) is too recent to be the weekly baseline; an older one is superseded.
+    snap("2026-11-08", "up", "Up Co", 0.6, { "2026.Q4": 100000 }),
     snap("2026-10-26", "up", "Up Co", 0.4, { "2026.Q4": 1 }),
     snap("2026-11-02", "up", "Up Co", 0.4, { "2026.Q4": 100000 }, "2026-10-01"),
     snap("2026-11-02", "won", "Win Co", 0.8, { "2026.Q4": 50000 }, "2026-11-15"),
@@ -67,7 +70,7 @@ assert.equal(computePipelineDeltas([snap("2026-11-04", "a", "A", 1, {})], [], FO
     deal("same", "Flat Co", 0.6, { "2026-11": 9000 }, "2026-10-01"), // unchanged
     deal("new", "", 0.1, { "2027-02": 30000 }), // new, no account → stands as its own row
   ];
-  const r = computePipelineDeltas(snaps, live, FOCUS, new Map([["lost", "Lost: Budget"]]), "2026-11-04")!;
+  const r = computePipelineDeltas(snaps, live, FOCUS, new Map([["lost", "Lost: Budget"]]), "2026-11-09")!;
   assert.equal(r.since, "2026-11-02");
   assert.deepEqual(r.quarters, FOCUS);
 

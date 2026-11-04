@@ -1,6 +1,7 @@
 /**
  * Week-over-week pipeline changes for the Forecast vs Plan report: the live pipeline compared with
- * the most recent snapshot taken before today (America/New_York). All $ are probability-weighted.
+ * the most recent snapshot at least MIN_AGE_DAYS old (America/New_York), so a snapshot taken
+ * yesterday doesn't shrink the window to one day. All $ are probability-weighted.
  *   • rows   — net weighted change per client in each focus quarter, with one note per moving deal
  *   • shifts — deals whose start date moved (needs snapshots that record start_date)
  *   • wins   — deals that reached 100% since the snapshot
@@ -25,6 +26,8 @@ export type PipelineDeltas = {
   losses: Loss[];
 };
 
+/** Baseline snapshot must be at least this old: Tuesday's run compares against the prior Tuesday. */
+const MIN_AGE_DAYS = 6;
 /** Smallest weighted change that counts as movement (filters rounding noise). */
 const MIN_MOVE = 500;
 /** Smallest start-date move, in days, worth listing. */
@@ -69,7 +72,9 @@ export function computePipelineDeltas(
   today: string, // "YYYY-MM-DD", America/New_York
 ): PipelineDeltas | null {
   const isDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
-  const since = [...new Set(snapRows.map((r) => String(r?.[SNAP_COL.date] ?? "")))].filter((d) => isDate(d) && d < today).sort().at(-1);
+  const dates = [...new Set(snapRows.map((r) => String(r?.[SNAP_COL.date] ?? "")))].filter((d) => isDate(d) && d < today).sort();
+  // Latest snapshot a week back; with no history that old, fall back to the oldest one before today.
+  const since = dates.filter((d) => dayDiff(today, d) >= MIN_AGE_DAYS).at(-1) ?? dates[0];
   if (!since) return null;
 
   const allQ = quartersRange();
