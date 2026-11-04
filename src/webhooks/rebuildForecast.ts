@@ -14,7 +14,7 @@ import { worker, googleAuth } from "../worker.js";
 import { readSegments } from "../lib/notionForecast.js";
 import { computeFacts, factsToGrid, MIN_MONTH, MAX_MONTH } from "../lib/forecast.js";
 import { replaceTab } from "../lib/sheets.js";
-import { postForecastOps } from "../lib/slack.js";
+import { NOTICE_EMOJI, postForecastOps, postForecastOpsNotice } from "../lib/slack.js";
 import type { Client } from "@notionhq/client";
 
 /** Tab in the Forecast Dashboard sheet that holds the tidy fact table. */
@@ -51,10 +51,10 @@ worker.webhook("rebuildForecast", {
       try {
         const r = await rebuild(notion);
         const msg =
-          `:bar_chart: *Forecast rebuilt* — ${r.rows} monthly rows from ${r.segments} segments ` +
+          `${NOTICE_EMOJI} *Forecast rebuilt* — ${r.rows} monthly rows from ${r.segments} segments ` +
           `(${MIN_MONTH}…${MAX_MONTH}). Committed ${money(r.committed)}, Weighted ${money(r.weighted)}.`;
         console.log(`[forecast] ${msg}`);
-        await postForecastOps(msg);
+        await postForecastOpsNotice(msg);
       } catch (err) {
         const m = err instanceof Error ? err.message : String(err);
         console.error("[forecast] rebuild failed:", err);

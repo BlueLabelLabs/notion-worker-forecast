@@ -21,7 +21,7 @@ import { renderSimulatorHtml } from "../lib/simulatorHtml.js";
 import { renderStackedEmbed } from "../lib/embedStack.js";
 import { getValuesUnformatted } from "../lib/sheets.js";
 import { uploadHtml, syncReportEmbeds, retireReportEmbeds } from "../lib/notionEmbed.js";
-import { postForecastOps } from "../lib/slack.js";
+import { NOTICE_EMOJI, postForecastOps, postForecastOpsNotice } from "../lib/slack.js";
 
 /** Experimental Reporting page. The combined report's embed lives in its own draggable container (matched by filename). */
 const PAGE_ID = "3d24ed00807880f0aa20f33754e60b61";
@@ -117,7 +117,7 @@ worker.webhook("renderNotionFunnel", {
         const fresh = [...r.created, ...r.migrated];
         console.log(`[forecast] Notion report updated — near ${pct(nearPct)} covered, gap ${(fullGap / 1e6).toFixed(1)}M (updated=[${r.updated}] created=[${r.created}] migrated=[${r.migrated}] dupes=${r.deletedDupes} retired=[${retired}])`);
         // Routine "report updated" Slack noise removed; only ping when a NEW card is created and needs dragging into place.
-        if (fresh.length) await postForecastOps(`:information_source: *Forecast report*: new card(s) added at the page end (${fresh.join(", ")}) — drag into place once; future refreshes stay put.`);
+        if (fresh.length) await postForecastOpsNotice(`${NOTICE_EMOJI} *Forecast report*: new card(s) added at the page end (${fresh.join(", ")}) — drag into place once; future refreshes stay put.`);
       } catch (err) {
         const m = err instanceof Error ? err.message : String(err);
         console.error("[forecast] notion reports failed:", err);

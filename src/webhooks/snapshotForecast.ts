@@ -12,7 +12,7 @@ import { aggregateDeals, applyPursuitLeadFallback } from "../lib/render.js";
 import { SNAPSHOT_HEADERS, buildSnapshotRows, snapshotDate } from "../lib/snapshot.js";
 import { ensureTab, getValuesUnformatted, clearValues, writeValues } from "../lib/sheets.js";
 import { withSheetsAuthRetry } from "../lib/renderGuard.js";
-import { postForecastOps } from "../lib/slack.js";
+import { NOTICE_EMOJI, postForecastOps, postForecastOpsNotice } from "../lib/slack.js";
 
 const SNAPSHOT_TAB = "Snapshots";
 
@@ -49,9 +49,9 @@ worker.webhook("snapshotForecast", {
           },
         );
 
-        const msg = `:camera_with_flash: *Snapshot saved* — ${fresh.length} deals on ${key} (${snapshots} snapshot${snapshots === 1 ? "" : "s"} stored).`;
+        const msg = `${NOTICE_EMOJI} *Snapshot saved* — ${fresh.length} deals on ${key} (${snapshots} snapshot${snapshots === 1 ? "" : "s"} stored).`;
         console.log(`[forecast] ${msg}`);
-        await postForecastOps(msg);
+        await postForecastOpsNotice(msg);
       } catch (err) {
         const m = err instanceof Error ? err.message : String(err);
         console.error("[forecast] snapshot failed:", err);

@@ -180,6 +180,15 @@ Inspect the Sheet via the `inspectSheet` webhook (set the `INSPECT_TAB` env var)
 Routine "report updated" Slack posts were removed on purpose — only failures and
 rare new-card notices post to `#forecast-ops`.
 
+## Slack notice convention
+
+Routine run summaries (forecast rebuilt, snapshot saved, new report card added) go
+through `postForecastOpsNotice` in `src/lib/slack.ts`, which posts a Slack `context`
+block: the small grey text that Notion's own database automation notifications use,
+matching the dppt and kantata workers. Every notice starts with `NOTICE_EMOJI`
+(`:notion:`) in the icon slot, then a bold label, then the summary. `:x:` failure
+posts via `postForecastOps` stay full-size so they stand out.
+
 ## Gotchas that already bit
 
 - **Deal Stage Changes cannot give cycle time.** Timestamps were bulk-imported,
