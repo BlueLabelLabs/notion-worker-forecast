@@ -28,7 +28,10 @@ worker.webhook("snapshotForecast", {
         if (!sheetId) throw new Error("FORECAST_SHEET_ID not set");
         const deals = aggregateDeals(await readSegments(notion));
         // Same owner rule as the Sheet views: Client Partner, else the deal's Pursuit Lead.
-        applyPursuitLeadFallback(deals, (await readOpenPlaceholderDeals(notion)).pursuitLeads);
+        const { pursuitLeads, startDates } = await readOpenPlaceholderDeals(notion);
+        applyPursuitLeadFallback(deals, pursuitLeads);
+        // start_date matches the Pipeline tab: the deal's Notion Start Date, else its earliest schedule start.
+        for (const d of deals) d.startDate = startDates.get(d.dealId) ?? d.startDate;
         const key = snapshotDate();
         const fresh = buildSnapshotRows(deals, key);
 
@@ -39,7 +42,7 @@ worker.webhook("snapshotForecast", {
             await ensureTab(token, sheetId, SNAPSHOT_TAB);
             // Read existing data rows (unformatted so numbers survive the rewrite), keep every
             // week except this one, then rewrite header + kept + fresh — an idempotent append.
-            const existing = await getValuesUnformatted(token, sheetId, `${SNAPSHOT_TAB}!A2:U100000`);
+            const existing = await getValuesUnformatted(token, sheetId, `${SNAPSHOT_TAB}!A2:V100000`);
             const kept = existing.filter((r) => r.length > 0 && String(r[0]) !== key);
             const grid = [SNAPSHOT_HEADERS, ...kept, ...fresh];
 

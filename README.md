@@ -86,9 +86,12 @@ Sheet, then replicate that edit in `render.ts`.
 
 ## Notion embed
 
-One draggable embed, `forecast_vs_plan.html`, stacks three reports:
+One draggable embed, `forecast_vs_plan.html`, stacks three reports (2 and 3 share a tab bar,
+Coverage Funnel first):
 
-1. **Forecast vs Plan**: KPI cards, glidepath, and windowed bars (`planHtml.ts`).
+1. **Forecast vs Plan**: KPI cards, glidepath, windowed bars (`planHtml.ts`), and weekly
+   **Pipeline changes**: weighted per-client movement, start-date shifts, wins, and losses
+   vs the last snapshot (`pipelineDeltas.ts`).
 2. **Coverage Funnel**: open pipeline by stage (10–80%) per near-quarter window against a
    per-stage ideal minimum (`funnelHtml.ts`, `coverageFunnel.ts`). Three models via toggle:
    Single-stage, **Distributed** (default), and Actual. Gap = target − Won.

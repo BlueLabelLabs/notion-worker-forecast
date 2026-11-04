@@ -22,7 +22,21 @@ export const SNAPSHOT_HEADERS: string[] = [
   "gross_total",
   "weighted_total",
   ...QUARTERS,
+  "start_date", // earliest schedule start ("YYYY-MM-DD"); lets the report show week-over-week start shifts
 ];
+
+/** 0-based column of each snapshot field (data rows share the header layout). */
+export const SNAP_COL = {
+  date: 0,
+  dealId: 1,
+  title: 2,
+  client: 3,
+  partner: 4,
+  probability: 5,
+  contract: 6,
+  firstQuarter: 9,
+  startDate: 9 + QUARTERS.length,
+} as const;
 
 /**
  * The snapshot's identity: the calendar date in America/New_York as "YYYY-MM-DD".
@@ -35,7 +49,7 @@ export function snapshotDate(d: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
 }
 
-/** One row per deal: attributes + gross/weighted totals + gross per quarter. */
+/** One row per deal: attributes + gross/weighted totals + gross per quarter + start date. */
 export function buildSnapshotRows(deals: DealAgg[], snapshotDate: string): (string | number)[][] {
   const rows: (string | number)[][] = [];
   for (const d of deals) {
@@ -59,6 +73,7 @@ export function buildSnapshotRows(deals: DealAgg[], snapshotDate: string): (stri
       Math.round(grossTotal),
       Math.round(weightedTotal),
       ...QUARTERS.map((q) => Math.round(perQ.get(q)!)),
+      d.startDate ?? "",
     ]);
   }
   return rows;

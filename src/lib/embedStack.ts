@@ -79,8 +79,13 @@ function scopeRules(css: string, w: string): string {
 
 const scopeCss = (css: string, w: string): string => scopeRules(css.replace(/\/\*[\s\S]*?\*\//g, ""), w);
 
-/** One combined embed doc: the given report HTMLs stacked, each isolated, fonts emitted once. */
-export function renderStackedEmbed(sections: string[], title: string): string {
+/**
+ * One combined embed doc: the given report HTMLs stacked, each isolated, fonts emitted once.
+ * With `tabs`, sections from index `from` onward share one tab bar (labels in order) and only the
+ * selected one shows — the first by default. Hidden panes still render: the charts draw into fixed
+ * viewBoxes, so nothing depends on being measured while visible.
+ */
+export function renderStackedEmbed(sections: string[], title: string, opts?: { tabs?: { from: number; labels: string[] } }): string {
   const blocks = sections.map((html, i) => {
     const w = `.s${i}`;
     const p = parts(html);
@@ -93,6 +98,14 @@ export function renderStackedEmbed(sections: string[], title: string): string {
     }
     return { i, css, body, script };
   });
+  const tabFrom = opts?.tabs && sections.length - opts.tabs.from > 1 ? opts.tabs.from : -1; // one pane needs no tabs
+  const tabBar =
+    tabFrom < 0
+      ? ""
+      : `<div class="tabs-wrap"><div class="tabs" role="tablist">${blocks
+          .filter((b) => b.i >= tabFrom)
+          .map((b, k) => `<button type="button" role="tab" data-pane="s${b.i}" aria-selected="${k === 0}"${k === 0 ? ' class="on"' : ""}>${opts!.tabs!.labels[k] ?? `Report ${k + 1}`}</button>`)
+          .join("")}</div></div>`;
 
   return `<!doctype html>
 <meta charset="utf-8">
@@ -108,8 +121,29 @@ ${BRAND_FONTS}
   [hidden]{display:none!important}
   .rpt{display:block}
   .rpt + .rpt{margin-top:14px}
+  /* Tab bar for the tabbed sections — same pill style as the report toggles, framed like .wrap. */
+  :root{--tab-ink:#64748B;--tab-hair:#CBD5E1;--tab-on:#2424FC}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tab-ink:#A6AEBE;--tab-hair:#333B4D;--tab-on:#8A8AFF}}
+  :root[data-theme="dark"]{--tab-ink:#A6AEBE;--tab-hair:#333B4D;--tab-on:#8A8AFF}
+  .tabs-wrap{max-width:1120px;margin:22px auto 0;padding:0 18px;box-sizing:border-box}
+  .tabs{display:inline-flex;border:1px solid var(--tab-hair);border-radius:20px;overflow:hidden}
+  .tabs button{appearance:none;border:0;background:transparent;color:var(--tab-ink);font-family:"NB Book","Helvetica Neue",Arial,sans-serif;font-size:13px;padding:7px 16px;cursor:pointer}
+  .tabs button.on{background:var(--tab-on);color:#fff}
+  .tabs button:focus-visible{outline:2px solid var(--tab-on);outline-offset:1px}
 ${blocks.map((b) => b.css).join("\n")}
 </style>
-${blocks.map((b) => `<div class="rpt s${b.i}">${b.body}</div>`).join("\n")}
-${blocks.map((b) => `<script>\n${b.script}\n</script>`).join("\n")}`;
+${blocks.map((b) => `${b.i === tabFrom ? tabBar + "\n" : ""}<div class="rpt s${b.i}"${tabFrom >= 0 && b.i > tabFrom ? " hidden" : ""}>${b.body}</div>`).join("\n")}
+${blocks.map((b) => `<script>\n${b.script}\n</script>`).join("\n")}${
+    tabFrom < 0
+      ? ""
+      : `
+<script>
+(function(){
+  var btns=[].slice.call(document.querySelectorAll(".tabs button"));
+  btns.forEach(function(b){b.addEventListener("click",function(){
+    btns.forEach(function(o){var on=o===b;o.classList.toggle("on",on);o.setAttribute("aria-selected",on);var pane=document.querySelector(".rpt."+o.getAttribute("data-pane"));if(pane)pane.hidden=!on;});
+  });});
+})();
+</script>`
+  }`;
 }

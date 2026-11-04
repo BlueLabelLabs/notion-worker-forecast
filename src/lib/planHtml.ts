@@ -13,6 +13,7 @@
 
 import type { PlanRow } from "./planVsPipeline.js";
 import type { GlideSeries } from "./glidepath.js";
+import type { PipelineDeltas } from "./pipelineDeltas.js";
 import { BRAND_FONTS } from "./brandFonts.js";
 
 function money(n: number): string {
@@ -39,7 +40,33 @@ function weeksToEnd(q: string): number | null {
 const CUR = "#2424FC";
 const NXT = "#0D9488";
 
-export function renderPlanHtml(rows: PlanRow[], meta: { asOf: string; nowQuarter?: string; kpiQuarter?: string }, glide: GlideSeries[] = []): string {
+export function renderPlanHtml(
+  rows: PlanRow[],
+  meta: { asOf: string; nowQuarter?: string; kpiQuarter?: string },
+  glide: GlideSeries[] = [],
+  deltas: PipelineDeltas | null = null,
+): string {
+  // "Since" label for the pipeline-changes card, e.g. "Oct 27".
+  const sinceLabel = deltas
+    ? new Date(`${deltas.since}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+    : "";
+  const deltaCard = !deltas
+    ? ""
+    : `<div class="card dcard">
+    <div class="card-head">
+      <div><span class="dtitle">Pipeline changes</span> <span class="asof">since ${esc(sinceLabel)} snapshot &middot; weighted</span></div>
+      <div class="seg" id="dsort" role="group" aria-label="Sort by biggest movers in">${deltas.quarters
+        .map((q, i) => `<button type="button" data-i="${i}"${i === 0 ? ' class="on"' : ""}>${esc(q)}</button>`)
+        .join("")}</div>
+    </div>
+    <div class="dscroll"><table class="dt">
+      <thead><tr><th>Client</th>${deltas.quarters.map((q, i) => `<th class="num" data-i="${i}">${esc(q)}</th>`).join("")}<th>What changed</th></tr></thead>
+      <tbody id="drows"></tbody>
+    </table></div>
+    <div class="dsub"><h3>Shifts</h3><div id="dshifts"></div></div>
+    <div class="dsub"><h3>Wins</h3><div class="dscroll"><table class="dt" id="dwins"></table></div></div>
+    <div class="dsub"><h3>Losses</h3><div class="dscroll"><table class="dt" id="dlosses"></table></div></div>
+  </div>`;
   const data = rows.map((r) => {
     const tot = r.signed + r.contW + r.newW;
     return { q: r.q, t: r.target, s: r.signed, cw: r.contW, nw: r.newW, tot, gap: tot - r.target, pc: (tot / (r.target || 1)) * 100 };
@@ -175,6 +202,24 @@ ${BRAND_FONTS}
   .tt-r .l{display:flex;align-items:center;gap:7px;color:var(--ink-2)}
   .tt-r .v{font-family:var(--mono);color:var(--ink)}
   .tt-r .sw{width:9px;height:9px;border-radius:2px}
+  /* Pipeline changes */
+  .dtitle{font-family:var(--book);font-size:13px;color:var(--ink)}
+  .dscroll{overflow-x:auto}
+  .dt{width:100%;border-collapse:collapse;font-size:12.5px}
+  .dt th{font-family:var(--book);font-weight:400;text-transform:uppercase;letter-spacing:1px;font-size:9.5px;color:var(--ink-3);text-align:left;padding:6px 10px;border-bottom:1px solid var(--hair-strong);white-space:nowrap}
+  .dt th.on{color:var(--ink)}
+  .dt td{padding:7px 10px;border-bottom:1px solid var(--hair);vertical-align:top;color:var(--ink)}
+  .dt .num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .dt td.up{color:var(--good-ink)} .dt td.down{color:var(--crit-ink)} .dt td.flat{color:var(--ink-3)}
+  .dt .sub{display:block;font-size:11.5px;color:var(--ink-2);line-height:1.5}
+  .dt .why{color:var(--ink-2);font-size:11.5px;line-height:1.55}
+  .dsub{margin-top:16px}
+  .dsub h3{font-family:var(--book);font-weight:400;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-2);margin:0 0 6px}
+  .dshift{display:flex;gap:10px;align-items:baseline;font-size:12.5px;padding:4px 0;color:var(--ink)}
+  .dshift .ar{font-family:var(--mono);white-space:nowrap}
+  .dshift .ar.early{color:var(--good-ink)} .dshift .ar.late{color:var(--warn-ink)}
+  .dshift .cl{color:var(--ink-3);font-size:11.5px}
+  .dempty{font-size:12px;color:var(--ink-3);padding:4px 0}
   @media(max-width:560px){.kpis{grid-template-columns:1fr}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -198,6 +243,7 @@ ${BRAND_FONTS}
     </div>
     <div class="chart"><div id="c-plan"></div></div>
   </div>
+  ${deltaCard}
 </div>
 <div class="tt" id="tt" role="status" aria-live="polite"></div>
 <script>
@@ -276,6 +322,56 @@ ${BRAND_FONTS}
   b2.addEventListener("click",function(){b2.classList.add("on");b4.classList.remove("on");draw("2");});
   b4.addEventListener("click",function(){b4.classList.add("on");b2.classList.remove("on");draw("4");});
   draw("2");
+
+  // ---- Pipeline changes (live vs last snapshot) ----
+  var DELTAS = ${JSON.stringify(deltas)};
+  if (DELTAS) (function(){
+    function td(text, cls){var c=document.createElement("td");if(cls)c.className=cls;c.textContent=text;return c;}
+    function signed(n){if(Math.abs(n)<500)return "—";var a=Math.abs(n),s=a>=1e6?"$"+(a/1e6).toFixed(1)+"M":"$"+Math.round(a/1e3)+"K";return (n<0?"−":"+")+s;}
+    function dur(days){var a=Math.abs(days);return a<14?a+" day"+(a===1?"":"s"):a<60?Math.round(a/7)+" weeks":Math.round(a/30.4)+" month"+(Math.round(a/30.4)===1?"":"s");}
+    function mdy(iso){if(!iso)return "—";var p=iso.split("-");return (+p[1])+"/"+(+p[2])+"/"+p[0];}
+    function empty(host,msg){var d=document.createElement("div");d.className="dempty";d.textContent=msg;host.appendChild(d);}
+    var body=document.getElementById("drows"), table=body.parentNode;
+    function rows(sortI){
+      body.innerHTML="";
+      [].slice.call(table.querySelectorAll("th[data-i]")).forEach(function(th){th.classList.toggle("on",+th.getAttribute("data-i")===sortI);});
+      var R=DELTAS.rows.slice().sort(function(a,b){return Math.abs(b.dq[sortI])-Math.abs(a.dq[sortI]);});
+      if(!R.length){var tr=document.createElement("tr"),c=td("No weighted changes since the last snapshot.","flat");c.colSpan=DELTAS.quarters.length+2;tr.appendChild(c);body.appendChild(tr);return;}
+      R.forEach(function(r){
+        var tr=document.createElement("tr");tr.appendChild(td(r.client));
+        r.dq.forEach(function(v){tr.appendChild(td(signed(v),"num "+(Math.abs(v)<500?"flat":v>0?"up":"down")));});
+        var why=td("","why");r.notes.forEach(function(n){var s=document.createElement("span");s.className="sub";s.textContent=n;why.appendChild(s);});tr.appendChild(why);
+        body.appendChild(tr);
+      });
+    }
+    [].slice.call(document.querySelectorAll("#dsort button")).forEach(function(b){
+      b.addEventListener("click",function(){[].slice.call(document.querySelectorAll("#dsort button")).forEach(function(o){o.classList.toggle("on",o===b);});rows(+b.getAttribute("data-i"));});
+    });
+    rows(0);
+
+    var sh=document.getElementById("dshifts");
+    if(DELTAS.shifts===null) empty(sh,"Start-date shifts appear from the next weekly snapshot, which records start dates.");
+    else if(!DELTAS.shifts.length) empty(sh,"No start dates moved.");
+    else DELTAS.shifts.forEach(function(s){
+      var d=document.createElement("div");d.className="dshift";
+      var t=document.createElement("span");t.textContent=s.title;
+      var a=document.createElement("span");a.className="ar "+(s.days<0?"early":"late");a.textContent=(s.days<0?"← ":"→ ")+dur(s.days);
+      var c=document.createElement("span");c.className="cl";c.textContent=s.client!==s.title?s.client:"";
+      d.appendChild(t);d.appendChild(a);d.appendChild(c);sh.appendChild(d);
+    });
+
+    function grid(id, head, list, cells, none){
+      var t=document.getElementById(id);
+      if(!list.length){t.style.display="none";empty(t.parentNode,none);return;}
+      var thead=document.createElement("thead"),hr=document.createElement("tr");
+      head.forEach(function(h){var th=document.createElement("th");th.textContent=h[0];if(h[1])th.className=h[1];hr.appendChild(th);});
+      thead.appendChild(hr);t.appendChild(thead);
+      var tb=document.createElement("tbody");list.forEach(function(x){var tr=document.createElement("tr");cells(x).forEach(function(c){tr.appendChild(c);});tb.appendChild(tr);});t.appendChild(tb);
+    }
+    function clientCell(x){var c=td(x.client);if(x.title!==x.client){var s=document.createElement("span");s.className="sub";s.textContent=x.title;c.appendChild(s);}return c;}
+    grid("dwins",[["Client"],["Start Date"],["90d Revenue","num"],["Contract Format"]],DELTAS.wins,function(w){return [clientCell(w),td(mdy(w.start)),td(w.rev90>=1e6?"$"+(w.rev90/1e6).toFixed(1)+"M":"$"+Math.round(w.rev90/1e3)+"K","num"),td(w.contract||"—")];},"No new wins since the last snapshot.");
+    grid("dlosses",[["Client"],["Reason"]],DELTAS.losses,function(l){return [clientCell(l),td(l.reason||"—")];},"No losses since the last snapshot.");
+  })();
 
   // ---- Coverage glidepath (one per KPI card) ----
   function glide(host,q){

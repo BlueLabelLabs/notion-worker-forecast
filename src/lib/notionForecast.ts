@@ -138,14 +138,19 @@ export const DEALS_DS = "ee89a6dd-be27-4bc5-bc5f-86b6ef40be2b";
  * still surface in the Pipeline view (in their probability tier, at $0 across every period). "Open"
  * = 0 < Stage Probability < 1, which excludes Won (1.0) and dead/parked stages (0), and is robust to
  * stage renames. Deals that already have schedules are skipped — they arrive via readSegments with
- * real, time-phased revenue. The same pass also returns every deal's Notion "Start Date" and its first
- * "Pursuit Lead" name (both by deal id). Placeholders with no Client Partner fall back to that Pursuit Lead.
+ * real, time-phased revenue. The same pass also returns, by deal id, every deal's Notion "Start Date", its
+ * first "Pursuit Lead" name, and, for 0% (lost/unqualified) deals, its stage and selected reasons.
+ * Placeholders with no Client Partner fall back to that Pursuit Lead.
  */
-export async function readOpenPlaceholderDeals(
-  notion: Client,
-): Promise<{ placeholders: DealAgg[]; startDates: Map<string, string>; pursuitLeads: Map<string, string> }> {
+export async function readOpenPlaceholderDeals(notion: Client): Promise<{
+  placeholders: DealAgg[];
+  startDates: Map<string, string>;
+  pursuitLeads: Map<string, string>;
+  lossReasons: Map<string, string>;
+}> {
   const out: DealAgg[] = [];
   const startDates = new Map<string, string>();
+  const lossReasons = new Map<string, string>(); // stage plus selected reasons, e.g. Lost: Price / commercial terms
   const leadRefs = new Map<string, { id: string; name: string }>(); // deal id → first Pursuit Lead
   let cursor: string | undefined;
   do {
@@ -159,6 +164,11 @@ export async function readOpenPlaceholderDeals(
       const lead = firstPerson(props["Pursuit Lead"]);
       if (lead) leadRefs.set(id, lead);
       const prob = numberOf(props["Stage Probability"]);
+      if (prob === 0) {
+        const stage = selectName(props["ZD | Stage"]);
+        const reasons = [...multiNames(props["Lost Reason"]), ...multiNames(props["Unqualified Reason"])];
+        lossReasons.set(id, reasons.length ? `${stage || "Lost"}: ${reasons.join(", ")}` : stage);
+      }
       if (!(prob > 0 && prob < 1)) continue; // open stages only — not Won (1.0), not dead/0%
       const sched = props["📆 Deal Revenue Schedule"] as { type?: string; relation?: unknown[] } | undefined;
       if (sched?.type === "relation" && (sched.relation?.length ?? 0) > 0) continue; // already scheduled → via segments
@@ -194,7 +204,13 @@ export async function readOpenPlaceholderDeals(
   const pursuitLeads = new Map<string, string>();
   for (const [dealId, { id }] of leadRefs) if (names.get(id)) pursuitLeads.set(dealId, names.get(id)!);
   applyPursuitLeadFallback(out, pursuitLeads);
-  return { placeholders: out, startDates, pursuitLeads };
+  return { placeholders: out, startDates, pursuitLeads, lossReasons };
+}
+
+/** Option names of a Notion multi-select property, in order. */
+function multiNames(prop: unknown): string[] {
+  const p = prop as { type?: string; multi_select?: { name?: string }[] } | undefined;
+  return p?.type === "multi_select" ? (p.multi_select ?? []).map((o) => o.name ?? "").filter(Boolean) : [];
 }
 
 /** First person in a Notion people property: its id, and its name when the API includes it. */

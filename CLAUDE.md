@@ -72,7 +72,9 @@ chronological proxy for re-imported old clients. Yields ~16 arc templates.
 
 **Snapshots.** Append-only weekly history, one row per deal per week, keyed to
 that week's Monday in America/New_York. A Google Apps Script trigger fires
-Tuesday ~4 PM ET.
+Tuesday ~4 PM ET. Columns: snapshot_date … 12 quarter grosses (J–U), then
+`start_date` (V, the deal's Notion Start Date, else its earliest schedule start).
+Read positions via `SNAP_COL` in `src/lib/snapshot.ts`; append new columns at the end.
 
 ## Sheet views
 
@@ -110,9 +112,10 @@ top-aligned throughout.
 
 ## Notion embed
 
-One draggable embed, `forecast_vs_plan.html`, stacking three reports in order:
-Forecast vs Plan (KPI cards + glidepath + windowed bars) → Coverage Funnel →
-Gap Simulator. Webhook `renderNotionFunnel`; libs `notionEmbed.ts`,
+One draggable embed, `forecast_vs_plan.html`: Forecast vs Plan (KPI cards +
+glidepath + windowed bars + Pipeline changes) on top, then a tab bar holding
+Coverage Funnel (default tab) and Gap Simulator (`renderStackedEmbed`'s `tabs`
+option; hidden panes stay in the document, toggled with `hidden`). Webhook `renderNotionFunnel`; libs `notionEmbed.ts`,
 `embedStack.ts`, `planHtml.ts`, `funnelHtml.ts` + `coverageFunnel.ts`,
 `simulatorHtml.ts` + `simulator.ts`.
 
@@ -133,6 +136,15 @@ container and manual placement survives.
 Notion API v2026-03-11 constraints: embed PATCH rejects `embed.file_upload` and
 positional `after`; embeds expose only caption and url with **no settable
 height**; uploads are immutable.
+
+**Pipeline changes** (`pipelineDeltas.ts`, card under the bar chart): live vs the
+most recent snapshot dated before today (ET), all $ **weighted**. Net change per
+client in the two focus quarters with one note per moving deal, sorted by the
+selected quarter's biggest movers (quarter toggle); Shifts (start-date moves of
+≥3 days, from snapshot `start_date`; shows a placeholder until a snapshot has
+it); Wins (reached 100%: start, 90-day gross, contract format); Losses (dropped to
+0% with the Deals' `ZD | Stage` + loss-reason multi-selects, or left the forecast).
+Loss "detailed reason" (Client Notes, Growth Rally transcripts) is not built yet.
 
 **Coverage-funnel model.** Per near-quarter window, open pipeline by stage 10–80%
 against a per-stage "ideal minimum". Three models via toggle, **Distributed is

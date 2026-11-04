@@ -8,7 +8,7 @@
  */
 
 import { worker, googleAuth } from "../worker.js";
-import { readSegments, readTargets, readStageCycles } from "../lib/notionForecast.js";
+import { readSegments, readTargets, readStageCycles, readOpenPlaceholderDeals } from "../lib/notionForecast.js";
 import { aggregateDeals } from "../lib/render.js";
 import { focusQuarter, monthToQuarter, quartersRange } from "../lib/forecast.js";
 import { appendLivePoints, computeGlidepath, type GlideSeries } from "../lib/glidepath.js";
@@ -19,6 +19,7 @@ import { computePlanRows } from "../lib/planVsPipeline.js";
 import { renderPlanHtml } from "../lib/planHtml.js";
 import { renderSimulatorHtml } from "../lib/simulatorHtml.js";
 import { renderStackedEmbed } from "../lib/embedStack.js";
+import { computePipelineDeltas, type PipelineDeltas } from "../lib/pipelineDeltas.js";
 import { getValuesUnformatted } from "../lib/sheets.js";
 import { uploadHtml, syncReportEmbeds, retireReportEmbeds } from "../lib/notionEmbed.js";
 import { NOTICE_EMOJI, postForecastOps, postForecastOpsNotice } from "../lib/slack.js";
@@ -56,13 +57,14 @@ worker.webhook("renderNotionFunnel", {
         // Read from the append-only Snapshots tab; resilient — if unavailable, the KPI cards just
         // won't expand and the rest of the report still renders.
         let glide: GlideSeries[] = [];
+        let snapRows: (string | number)[][] = [];
         try {
           const sheetId = process.env.FORECAST_SHEET_ID;
           if (sheetId) {
             const quarters = quartersRange();
             const ci = quarters.indexOf(kpiQuarter);
             const forQ = ci >= 0 ? quarters.slice(ci, ci + 2) : [];
-            const snapRows = await getValuesUnformatted(await googleAuth.accessToken(), sheetId, "Snapshots!A2:U100000");
+            snapRows = await getValuesUnformatted(await googleAuth.accessToken(), sheetId, "Snapshots!A2:V100000");
             glide = computeGlidepath(snapRows, targets, quarters, forQ);
             appendLivePoints(glide, deals, monthToQuarter, now); // latest point = today's live pipeline
           }
@@ -72,7 +74,23 @@ worker.webhook("renderNotionFunnel", {
 
         // Forecast vs Plan — all target quarters + coverage KPI cards (with glidepath) on top.
         const planRows = computePlanRows(segments, targets);
-        const htmlPlan = renderPlanHtml(planRows, { asOf, nowQuarter: curQuarter, kpiQuarter }, glide);
+        // Pipeline changes under the bar chart: live vs the most recent snapshot before today (ET).
+        // Resilient: without snapshots or Deals metadata the section is simply omitted.
+        let deltas: PipelineDeltas | null = null;
+        try {
+          if (snapRows.length) {
+            const { startDates, lossReasons } = await readOpenPlaceholderDeals(notion);
+            // Same start-date rule as the snapshot rows, on copies so the other reports are unaffected.
+            const live = deals.map((d) => ({ ...d, startDate: startDates.get(d.dealId) ?? d.startDate }));
+            const quarters = quartersRange();
+            const ci = quarters.indexOf(kpiQuarter);
+            const todayET = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now);
+            if (ci >= 0) deltas = computePipelineDeltas(snapRows, live, quarters.slice(ci, ci + 2), lossReasons, todayET);
+          }
+        } catch (e) {
+          console.warn("[forecast] pipeline deltas unavailable:", e instanceof Error ? e.message : e);
+        }
+        const htmlPlan = renderPlanHtml(planRows, { asOf, nowQuarter: curQuarter, kpiQuarter }, glide, deltas);
 
         // Gap-closing simulator — client revenue-arc templates + coverage baseline, driven in-browser.
         // Resilient: if the arc/cycle read fails, we still publish the plan on its own.
@@ -98,7 +116,14 @@ worker.webhook("renderNotionFunnel", {
 
         // Stack plan → coverage funnel → simulator into ONE embed (each isolated + scoped), swapped
         // inside its draggable container so manual placement survives.
-        const combined = renderStackedEmbed([htmlPlan, htmlFunnel, htmlSim].filter((s): s is string => !!s), "Forecast vs Plan");
+        // The funnel and simulator share one tab bar under the plan (funnel first, the default tab).
+        const tabbed = [
+          { html: htmlFunnel, label: "Coverage funnel" },
+          { html: htmlSim, label: "Gap simulator" },
+        ].filter((t): t is { html: string; label: string } => !!t.html);
+        const combined = renderStackedEmbed([htmlPlan, ...tabbed.map((t) => t.html)], "Forecast vs Plan", {
+          tabs: { from: 1, labels: tabbed.map((t) => t.label) },
+        });
         const idPlan = await uploadHtml(token, combined, PLAN_FILE);
         const r = await syncReportEmbeds(token, PAGE_ID, [{ filename: PLAN_FILE, fileUploadId: idPlan }]);
 
