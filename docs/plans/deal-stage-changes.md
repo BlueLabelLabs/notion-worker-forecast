@@ -27,7 +27,7 @@ The early-stage numbers are shaky because the starting stage often isn't recorde
 | --- | --- | --- | --- |
 | 1 | Log the starting stage when a deal is created | Andon (Notion automation) | Configured, needs trigger check + test |
 | 2 | Fix or retire "Days Between Stages" | Andon to check automation; Claude computes from `Date` | Open |
-| 3 | Delete 9 duplicate rows | Claude, after confirmation | Waiting on confirmation |
+| 3 | Delete 9 duplicate rows | Claude | **Done** 2026-11-06 (in Notion trash until ~Dec 6) |
 | 4 | Handle multi-stage jumps (people, process, technical) | Team + Claude | Open |
 | 5 | Decide whether to retire the Deals `Value` field | Andon | Open |
 | 6 | Backfill history from the ZenDesk export | Andon (fields) + Claude (import) | Open |
@@ -62,7 +62,7 @@ older baseline (~104 days vs a real ~10-day gap). Only ~74 rows are right.
       correct values back.
 - [ ] Claude: compute gaps from each row's `Date` in the worker regardless.
 
-## 3. Duplicates to delete (pending confirmation)
+## 3. Duplicates (deleted 2026-11-06)
 
 Same deal + same stage within 5 minutes. Keep the row with notes, else the earlier one.
 
@@ -77,7 +77,7 @@ Same deal + same stage within 5 minutes. Keep the row with notes, else the earli
 | Zumiez | bot row `4014ed00-8078-8185…` |
 | Klehr AI Strategy & Training | bot row `4014ed00-8078-81f3…` |
 
-- [ ] Andon confirms → Claude moves them to Notion trash (restorable for 30 days).
+- [x] Moved to Notion trash on 2026-11-06 (restorable for 30 days).
 - [ ] Decide whether to exclude the BLTEST2 test deal from all stats.
 
 ## 4. Multi-stage jumps

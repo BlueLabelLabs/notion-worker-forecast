@@ -222,6 +222,7 @@ ${BRAND_FONTS}
   .dshift{display:flex;gap:10px;align-items:baseline;font-size:12.5px;padding:4px 0;color:var(--ink)}
   .dshift .ar{font-family:var(--mono);white-space:nowrap}
   .dshift .ar.early{color:var(--good-ink)} .dshift .ar.late{color:var(--warn-ink)}
+  .dshift .nth{margin-left:8px;color:var(--ink-3)}
   .dshift .cl{color:var(--ink-3);font-size:11.5px}
   .mention{color:inherit;text-decoration:none;white-space:normal}
   .mention svg{width:15px;height:15px;vertical-align:-3px;margin-right:2px;color:#A6A299}
@@ -381,6 +382,7 @@ ${BRAND_FONTS}
       var t=mention(s.title,s.url);
       var a=document.createElement("span");a.className="ar "+(s.days<0?"early":"late");a.textContent=(s.days<0?"← ":"→ ")+dur(s.days);
       var c=document.createElement("span");c.className="cl";if(s.client!==s.title)c.appendChild(mention(s.client,s.clientUrl,"acct"));
+      if(s.nth>1){var o=s.nth%100,sx=(o>=11&&o<=13)?"th":({1:"st",2:"nd",3:"rd"})[o%10]||"th";var n=document.createElement("span");n.className="nth";n.textContent="("+s.nth+sx+" shift in "+s.stage+" stage)";c.appendChild(n);}
       d.appendChild(t);d.appendChild(a);d.appendChild(c);sh.appendChild(d);
     });
 

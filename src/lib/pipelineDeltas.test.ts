@@ -85,7 +85,7 @@ assert.equal(computePipelineDeltas([snap("2026-11-03", "a", "A", 1, {})], [], FO
   // Sorted by the first quarter's absolute change.
   assert.deepEqual(r.rows.map((x) => x.client).slice(0, 3), ["Up Co", "Lost Co", "Win Co"]);
 
-  assert.deepEqual(r.shifts, [{ title: "won title", url: "https://www.notion.so/won", client: "Win Co", clientUrl: "", days: 16 }]);
+  assert.deepEqual(r.shifts, [{ title: "won title", url: "https://www.notion.so/won", client: "Win Co", clientUrl: "", days: 16, nth: 1, stage: "Won" }]);
   assert.equal(r.wins.length, 1);
   assert.equal(r.wins[0]!.rev90, 50000); // Dec fully inside the 90 days from Dec 1
   assert.deepEqual(
@@ -156,4 +156,20 @@ console.log("pipelineDeltas: ok");
   const by = new Map(r.rows.map((x) => [x.client, x.clientUrl]));
   assert.equal(by.get("Acme"), "https://www.notion.so/acct1");
   assert.equal(by.get("n-1 title"), "");
+}
+
+// Repeat shifts while in the same stage are counted: two earlier moves at 60% plus this week's = 3rd.
+{
+  const s = (d: string, start: string, prob = 0.6) => snap(d, "neg", "Neg Co", prob, { "2026.Q4": 10000 }, start);
+  const rows = [
+    s("2026-10-12", "2026-10-01", 0.4), // a move while still at 40% doesn't count toward 60%
+    s("2026-10-19", "2026-10-10"),
+    s("2026-10-26", "2026-10-24"), // moved +14d at 60%
+    s("2026-11-02", "2026-11-07"), // moved +14d at 60%
+  ];
+  const live = deal("neg", "Neg Co", 0.6, { "2026-12": 10000 }, "2026-11-21"); // this week: +14d
+  const r = computePipelineDeltas(rows, [live], FOCUS, new Map(), "2026-11-09")!;
+  assert.equal(r.shifts.length, 1);
+  assert.equal(r.shifts[0]!.nth, 3);
+  assert.equal(r.shifts[0]!.stage, "Negotiating");
 }

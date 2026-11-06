@@ -144,7 +144,7 @@ client in the two focus quarters with one note per moving deal, sorted by the
 selected quarter's biggest movers (quarter toggle); Shifts (timing moves of ≥3
 days: snapshot `start_date` vs live when both exist, else `inferShiftDays` fits how
 an unchanged total moved between quarters; notes read "pushed out → 2 weeks" /
-"pulled up ← 2 weeks"); Wins (reached 100%: start, 90-day gross, contract format;
+"pulled up ← 2 weeks"; a repeat move in the same stage adds grey "(3rd shift in Negotiating stage)", counted from consecutive weekly snapshots at the current probability); Wins (reached 100%: start, 90-day gross, contract format;
 a deal new at 100% must earn revenue from the snapshot month on, so backfilled
 past schedules aren't wins); Losses (dropped to
 0% with the Deals' `ZD | Stage` + loss-reason multi-selects, or left the forecast).

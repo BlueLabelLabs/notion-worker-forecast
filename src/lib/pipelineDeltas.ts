@@ -18,7 +18,8 @@ import { quartersRange, monthToQuarter } from "./forecast.js";
 export type DealNote = { title: string; url: string; text: string };
 // clientUrl: the Client Account page, "" when the deal has no account (it then stands as its own row).
 export type DeltaRow = { client: string; clientUrl: string; dq: number[]; notes: DealNote[] };
-export type Shift = { title: string; url: string; client: string; clientUrl: string; days: number }; // days > 0 = later, < 0 = earlier
+// days > 0 = later, < 0 = earlier. nth = which timing move this is while in the current stage (1 = first).
+export type Shift = { title: string; url: string; client: string; clientUrl: string; days: number; nth: number; stage: string };
 export type Win = { title: string; url: string; client: string; clientUrl: string; start: string; rev90: number; contract: string };
 export type Loss = { title: string; url: string; client: string; clientUrl: string; reason: string };
 export type PipelineDeltas = {
@@ -97,6 +98,29 @@ export function inferShiftDays(byMonth: Map<string, number>, prevGross: Map<stri
   return best !== 0 && bestErr <= prevTotal * 0.1 ? best : null;
 }
 
+/** CRM stage name for a probability (0..1). */
+export function stageName(prob: number): string {
+  const names: [number, string][] = [[1, "Won"], [0.8, "Closing"], [0.6, "Negotiating"], [0.4, "Estimating"], [0.2, "Qualifying"], [0.1, "New Opportunity"]];
+  return names.find(([p]) => Math.abs(p - prob) < 1e-6)?.[1] ?? `${Math.round(prob * 100)}%`;
+}
+
+/** Spread quarter totals evenly over each quarter's days, as monthly amounts (for snapshot-vs-snapshot fits). */
+function quartersToMonths(gross: Map<string, number>): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [q, v] of gross) {
+    if (!v) continue;
+    const [y, n] = q.split(".Q").map(Number);
+    const qs = Date.UTC(y!, (n! - 1) * 3, 1);
+    const qe = Date.UTC(y!, n! * 3, 1);
+    for (let m = 0; m < 3; m++) {
+      const ms = Date.UTC(y!, (n! - 1) * 3 + m, 1);
+      const me = Date.UTC(y!, (n! - 1) * 3 + m + 1, 1);
+      out.set(`${y}-${String((n! - 1) * 3 + m + 1).padStart(2, "0")}`, (v * (me - ms)) / (qe - qs));
+    }
+  }
+  return out;
+}
+
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 864e5);
 
 /** Gross revenue a deal earns in the 90 days from its start, prorating the boundary months by active days. */
@@ -132,8 +156,23 @@ export function computePipelineDeltas(
 
   const allQ = quartersRange();
   const prev = new Map<string, SnapDeal>();
+  // Every earlier snapshot per deal (oldest first), for counting repeat shifts within a stage.
+  const history = new Map<string, Map<string, SnapDeal>>();
   let hasStart = false;
   for (const r of snapRows) {
+    const rd = String(r?.[SNAP_COL.date] ?? "");
+    if (isDate(rd) && rd < since) {
+      const st = String(r[SNAP_COL.startDate] ?? "").slice(0, 10);
+      const id = String(r[SNAP_COL.dealId]);
+      const h = history.get(id) ?? history.set(id, new Map()).get(id)!;
+      h.set(rd, {
+        title: "",
+        client: "",
+        prob: num(r[SNAP_COL.probability]),
+        gross: new Map<string, number>(allQ.map((q, i) => [q, num(r[SNAP_COL.firstQuarter + i])])),
+        start: isDate(st) ? st : "",
+      });
+    }
     if (String(r?.[SNAP_COL.date] ?? "") !== since) continue;
     const gross = new Map<string, number>(allQ.map((q, i) => [q, num(r[SNAP_COL.firstQuarter + i])]));
     const start = String(r[SNAP_COL.startDate] ?? "").slice(0, 10);
@@ -198,7 +237,24 @@ export function computePipelineDeltas(
       row.notes.push({ title, url, text: parts.join(", ") || "schedule revised" });
     }
 
-    if (l && p && lProb > 0 && Math.abs(shiftDays) >= MIN_SHIFT_DAYS) shifts.push({ title, url, client, clientUrl, days: shiftDays });
+    if (l && p && lProb > 0 && Math.abs(shiftDays) >= MIN_SHIFT_DAYS) {
+      // Count earlier timing moves while the deal has sat in this same stage (consecutive weekly
+      // snapshots at the live probability, back from the baseline), plus this one.
+      let nth = 1;
+      if (Math.abs(pProb - lProb) < 1e-6) {
+        const weeks = [...(history.get(id) ?? new Map<string, SnapDeal>())].sort(([a], [b]) => (a < b ? -1 : 1)).map(([, s]) => s);
+        let newer = p;
+        for (let i = weeks.length - 1; i >= 0; i--) {
+          const older = weeks[i]!;
+          if (Math.abs(older.prob - lProb) > 1e-6) break;
+          const d =
+            older.start && newer.start ? dayDiff(newer.start, older.start) : (inferShiftDays(quartersToMonths(newer.gross), older.gross, allQ) ?? 0);
+          if (Math.abs(d) >= MIN_SHIFT_DAYS) nth++;
+          newer = older;
+        }
+      }
+      shifts.push({ title, url, client, clientUrl, days: shiftDays, nth, stage: stageName(lProb) });
+    }
     // A deal new at 100% only counts if it earns revenue from the snapshot on: a backfilled schedule
     // for past work (e.g. an old change request logged late) is bookkeeping, not a win.
     const sinceMonth = since.slice(0, 7);
