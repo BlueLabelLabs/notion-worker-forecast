@@ -32,7 +32,7 @@ Google Sheet, and publishes a theme-aware HTML dashboard back into a Notion page
 | Deal Revenue Schedules | `37bf6504-1608-4bf0-af10-c6e5123cc618` | **Source of truth for $.** Weekly revenue or fixed fee, date window, client account, stage probability |
 | Deals | `ee89a6dd-be27-4bc5-bc5f-86b6ef40be2b` | Pipeline records. Open deals with no schedule read as $0 placeholders |
 | Revenue Targets | `3d24ed00-8078-809a-9a06-000be9fdbb2d` | One row per quarter, `Name` = "YYYY.Q#". **Source of truth for targets** (never hardcode) |
-| Deal Stage Changes | `d893ad12-e8c9-4ce5-8aec-677b09c1c025` | Stage transitions. Timestamps were bulk-imported and are **unreliable** for cycle time |
+| Deal Stage Changes | `d893ad12-e8c9-4ce5-8aec-677b09c1c025` | One row per stage a deal enters. Timestamps are reliable from 2026-03 (Feb rows were bulk-imported); see `CLAUDE.md` for known gaps |
 
 - **Google Sheet** "Forecast Dashboard": `11B2nldq0THoy_NYhBa7ZAFeb8YWKwn2l_0Rtd0toGyY`.
   Worker-written tabs: Client Partner, Pipeline, Weighted Monthly, Snapshots, and a hidden

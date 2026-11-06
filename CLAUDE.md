@@ -22,7 +22,7 @@ Notion, queried via `notion.dataSources.query({ data_source_id })`. IDs live in
 | Deal Revenue Schedules | `37bf6504-1608-4bf0-af10-c6e5123cc618` | **Source of truth for $.** weeklyRevenue or fixed fee, date window, client account, stage probability |
 | Deals | `ee89a6dd-be27-4bc5-bc5f-86b6ef40be2b` | Pipeline records. Open deals with no schedule read as $0 placeholders (`readOpenPlaceholderDeals`) |
 | Revenue Targets | `3d24ed00-8078-809a-9a06-000be9fdbb2d` | One row per quarter. `Name` = "YYYY.Q#". **Source of truth for targets** |
-| Deal Stage Changes | `d893ad12-e8c9-4ce5-8aec-677b09c1c025` | Stage transitions. Timestamps are bulk-imported and **unreliable** — see below |
+| Deal Stage Changes | `d893ad12-e8c9-4ce5-8aec-677b09c1c025` | One row per stage a deal enters. `Date` (created time) is **reliable from 2026-03**; Feb 2026 rows were bulk-imported — see below |
 
 - **Google Sheet** "Forecast Dashboard": `11B2nldq0THoy_NYhBa7ZAFeb8YWKwn2l_0Rtd0toGyY`.
   Worker-written tabs: Client Partner, Pipeline (sheetId `385847462`), Weighted
@@ -207,9 +207,39 @@ posts via `postForecastOps` stay full-size so they stand out.
 
 ## Gotchas that already bit
 
-- **Deal Stage Changes cannot give cycle time.** Timestamps were bulk-imported,
-  mostly with 0-week gaps. The simulator treats a 0-week gap as unknown and falls
-  back to a ~8-week cohort cycle.
+- **Deal Stage Changes: what it can and can't tell you** (audited 2026-11-06, 468 rows).
+  - Rows are written by a Notion database automation when `ZD | Stage` changes. It is
+    reliable: every deal's latest row matches its current stage, and 113 of 116 deals
+    created since March have history.
+  - **Timestamps:** `Date` is the row's created time. February 2026 rows were
+    bulk-imported (mostly 0-week gaps); **from 2026-03 rows are live**, so time in
+    stage can be measured from `Date` for deals that started after that. The simulator
+    still treats a 0-week gap as unknown and falls back to a ~8-week cohort cycle.
+  - **The starting stage is often missing.** The automation fires on change, not on
+    creation, so only 25 of 182 deals have a first "New Opportunity" row. Deals
+    unqualified or won on their first change have only that final row and don't count
+    toward any stage's win rate.
+  - **CRM-created deals get a double creation row:** the automation's bot row plus one
+    written by the CRM "Sales Qualified → Deal Creator" agent (titled
+    "New Opportunity — …", with a "Created from CRM contact…" note). Dedupe: same
+    deal + same stage within 5 minutes.
+  - **Click-throughs:** about 50 rows land within 10 minutes of the previous one
+    (several stages stepped through at once). Fine for "stages reached", wrong for
+    time in stage.
+  - **`Days Between Stages` is unreliable; compute gaps from `Date` instead.** It is 0
+    on Mar 2–Jun 8 rows, blank on many rows since June, and on others measures from
+    some older baseline (avg 104 days vs a real 10-day gap). Only about 74 rows are right.
+  - **`Value` is often empty** (40 final rows, 7 of them Won). Take $ from Deal
+    Revenue Schedules, not this field.
+  - 247 older closed deals have no history at all. The ZenDesk export is the backfill
+    source; `Date` is a created-time property and can't be set, so a backfill needs a
+    settable date property.
+  - **Win rates by stage** (count-based, deals that reached the stage and are now
+    resolved, Feb–Nov 2026): New Opportunity 25%, Qualifying 30% (could be ~17%
+    given the missing starting rows), Estimating 75%, Negotiating 86%, Closing 97%.
+    From Estimating up these sit well above the nominal CRM rates, so stage-weighted
+    values likely **understate** late-stage pipeline. Samples are 28–40 resolved deals
+    per stage.
 - **Double rollover blanked notes.** Client Partner "Actions to Grow" /
   "Last Week's Actions" are preserved across renders, keyed by the Deal HYPERLINK
   URL. Rollover fires only on a `{"rollover":true}` payload from the Sheet's Apps
