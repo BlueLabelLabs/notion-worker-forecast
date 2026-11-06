@@ -90,6 +90,8 @@ export function renderPlanHtml(
       return {
         quarter: s.quarter,
         color: k === 0 ? CUR : NXT,
+        gapKey: k === 0 ? "x" : "c", // hover gap: current quarter = Closed vs Target, next = Coverage vs Target
+        gapLabel: k === 0 ? "Closed gap" : "Coverage gap",
         tlabel: tlabel(s.target),
         target: s.target,
         ymax: sharedYMax,
@@ -417,8 +419,21 @@ ${BRAND_FONTS}
     var guide=el("line",{x1:0,x2:0,y1:T,y2:T+ph,stroke:"var(--ink-3)","stroke-width":1,"stroke-dasharray":"3 3",opacity:0,"pointer-events":"none"});
     var dotC=el("circle",{cx:0,cy:0,r:4.5,fill:"var(--surface)",stroke:col,"stroke-width":2,opacity:0,"pointer-events":"none"});
     var dotX=el("circle",{cx:0,cy:0,r:5,fill:col,stroke:"var(--surface)","stroke-width":2,opacity:0,"pointer-events":"none"});
-    [guide,dotC,dotX].forEach(function(n){svg.appendChild(n);});
-    function tip(p){return '<div class="tt-h">'+q.quarter+' · '+p.d+'</div>'+row(null,"Weeks out",p.w)+row(col,"Coverage",Math.round(p.c*100)+"% · "+usdS(p.c*tgt))+row(col,"Closed",Math.round(p.x*100)+"% · "+usdS(p.x*tgt))+row(null,"Target",q.tlabel);}
+    // Gap bracket: from the hovered point's Closed (current quarter) or Coverage (next quarter) up/down
+    // to the target line, with the signed gap beside it.
+    var gapB=el("path",{d:"",fill:"none","stroke-width":2,"stroke-linecap":"round","stroke-linejoin":"round",opacity:0,"pointer-events":"none"});
+    var gapT=el("text",{x:0,y:0,"font-size":19,"font-family":'"NB Mono",monospace',"font-weight":"600",opacity:0,"pointer-events":"none"});
+    [guide,dotC,dotX,gapB,gapT].forEach(function(n){svg.appendChild(n);});
+    function gap(p,px){
+      var v=p[q.gapKey]*tgt,d=v-tgt,y1=y(v),y2=y(tgt);
+      if(Math.abs(y1-y2)<4){gapB.setAttribute("opacity",0);gapT.setAttribute("opacity",0);return;}
+      var right=px+70<W-R,bx=right?px+12:px-12,tk=right?-6:6,c=d<0?"var(--crit-ink)":"var(--good-ink)";
+      gapB.setAttribute("d","M"+(bx+tk)+" "+y1+"H"+bx+"V"+y2+"H"+(bx+tk));gapB.setAttribute("stroke",c);gapB.setAttribute("opacity",1);
+      gapT.textContent=(d<0?"−":"+")+usdS(Math.abs(d));
+      gapT.setAttribute("x",right?bx+8:bx-8);gapT.setAttribute("y",(y1+y2)/2+6);gapT.setAttribute("text-anchor",right?"start":"end");
+      gapT.setAttribute("fill",c);gapT.setAttribute("opacity",1);
+    }
+    function tip(p){return '<div class="tt-h">'+q.quarter+' · '+p.d+'</div>'+row(null,"Weeks out",p.w)+row(col,"Coverage",Math.round(p.c*100)+"% · "+usdS(p.c*tgt))+row(col,"Closed",Math.round(p.x*100)+"% · "+usdS(p.x*tgt))+row(null,"Target",q.tlabel)+row(null,q.gapLabel,(function(d){return (d<0?"−":"+")+usdS(Math.abs(d));})((p[q.gapKey]-1)*tgt));}
     function nearest(ev){
       var pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;var sx=pt.matrixTransform(svg.getScreenCTM().inverse()).x;
       var best=q.points[0],bd=Infinity;q.points.forEach(function(p){var d=Math.abs(x(p.w)-sx);if(d<bd){bd=d;best=p;}});return best;
@@ -428,12 +443,13 @@ ${BRAND_FONTS}
       guide.setAttribute("x1",px);guide.setAttribute("x2",px);guide.setAttribute("opacity",1);
       dotC.setAttribute("cx",px);dotC.setAttribute("cy",y(p.c*tgt));dotC.setAttribute("opacity",1);
       dotX.setAttribute("cx",px);dotX.setAttribute("cy",y(p.x*tgt));dotX.setAttribute("opacity",1);
+      gap(p,px);
       ttShow(ev,tip(p));
     }
     var hit=el("rect",{x:L,y:T,width:pw,height:ph,fill:"transparent"});hit.style.cursor="crosshair";
     hit.addEventListener("mouseenter",mark);
     hit.addEventListener("mousemove",mark);
-    hit.addEventListener("mouseleave",function(){[guide,dotC,dotX].forEach(function(n){n.setAttribute("opacity",0);});ttHide();});
+    hit.addEventListener("mouseleave",function(){[guide,dotC,dotX,gapB,gapT].forEach(function(n){n.setAttribute("opacity",0);});ttHide();});
     svg.appendChild(hit);
     host.appendChild(svg);
   }

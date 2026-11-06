@@ -113,7 +113,7 @@ top-aligned throughout.
 ## Notion embed
 
 One draggable embed, `forecast_vs_plan.html`: Forecast vs Plan (KPI cards +
-glidepath, Pipeline changes, then windowed bars) on top, then a tab bar holding
+glidepath, Pipeline changes, then windowed bars) — hovering a glidepath brackets the gap to target at that point: Closed vs Target on the current-quarter chart, Coverage (weighted pipeline) vs Target on the next-quarter chart on top, then a tab bar holding
 Coverage Funnel (default tab) and Gap Simulator (`renderStackedEmbed`'s `tabs`
 option; hidden panes stay in the document, toggled with `hidden`). Webhook `renderNotionFunnel`; libs `notionEmbed.ts`,
 `embedStack.ts`, `planHtml.ts`, `funnelHtml.ts` + `coverageFunnel.ts`,
